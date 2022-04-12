@@ -15,14 +15,14 @@ struct main_chare : public Chare {
   }
 
   static void __register(void) {
-    __idx = CkRegisterChare("???", sizeof(Base), TypeMainChare);
+    __idx = CkRegisterChare(__PRETTY_FUNCTION__, sizeof(Base), TypeMainChare);
     CkRegisterBase(__idx, CkIndex_Chare::__idx);
     CkRegisterMainChare(__idx, __idx_main_CkArgMsg());
   }
 
   static int __idx_main_CkArgMsg(void) {
     static int ep = CkRegisterEp(
-        "???",
+        __PRETTY_FUNCTION__,
         [](void* msg, void* obj) {
           auto* amsg = (CkArgMsg*)msg;
           new ((Base*)obj) Base(amsg->argc, amsg->argv);

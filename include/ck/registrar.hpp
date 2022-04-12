@@ -32,7 +32,7 @@ struct index {
   static std::vector<index_fn_t> __entries;
 
   static void __register(void) {
-    __idx = CkRegisterChare("???", sizeof(Base), TypeArray);
+    __idx = CkRegisterChare(__PRETTY_FUNCTION__, sizeof(Base), TypeArray);
     // CkRegisterArrayDimensions(__idx, 1);
     CkRegisterBase(__idx, CkIndex_ArrayElement::__idx);
 
@@ -123,9 +123,9 @@ struct method_registrar {
     // force the compiler to initialize this variable
     (void)__idx;
     using attributes_t = attributes_of_t<Entry>;
-    return CkRegisterEp("???", &method_registrar<Base, Entry>::__call,
-                        attributes_t::__idx, index<Base>::__idx,
-                        attributes_t::flags);
+    return CkRegisterEp(
+        __PRETTY_FUNCTION__, &method_registrar<Base, Entry>::__call,
+        attributes_t::__idx, index<Base>::__idx, attributes_t::flags);
   }
 };
 
@@ -151,9 +151,9 @@ struct constructor_registrar {
     // force the compiler to initialize this variable
     (void)__idx;
     using attributes_t = method_attributes<Args...>;
-    return CkRegisterEp("???", &constructor_registrar<Base, Args...>::__call,
-                        attributes_t::__idx, index<Base>::__idx,
-                        attributes_t::flags);
+    return CkRegisterEp(
+        __PRETTY_FUNCTION__, &constructor_registrar<Base, Args...>::__call,
+        attributes_t::__idx, index<Base>::__idx, attributes_t::flags);
   }
 };
 
