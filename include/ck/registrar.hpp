@@ -3,7 +3,6 @@
 
 #include <ck/pup.hpp>
 #include <ck/singleton.hpp>
-#include <ck/traits.hpp>
 
 namespace ck {
 using register_fn_t = void (*)(void);
@@ -71,10 +70,42 @@ std::vector<index_fn_t> index<Base>::__entries;
 namespace {
 template <typename Base, typename... Args>
 std::tuple<Args...> __arguments(void (Base::*)(Args...));
+
+template <typename Message>
+int __message_idx(void) {
+  return Message::__idx;
 }
+}  // namespace
+
+template <typename... Args>
+struct method_attributes {
+  static constexpr auto is_message = is_message_v<std::decay_t<Args>...>;
+  static constexpr auto flags = is_message ? 0 : CK_EP_NOKEEP;
+  static int __idx;
+};
+
+template <typename... Args>
+int method_attributes<Args...>::__idx = ([](void) {
+  if constexpr (is_message) {
+    return __message_idx<std::remove_pointer_t<Args>...>();
+  } else {
+    return CkMarshallMsg::__idx;
+  }
+})();
+
+template <typename T>
+struct attributes_of;
+
+template <typename... Ts>
+struct attributes_of<std::tuple<Ts...>> {
+  using type = method_attributes<Ts...>;
+};
 
 template <auto Fn>
 using method_arguments_t = decltype(__arguments(Fn));
+
+template <auto Fn>
+using attributes_of_t = typename attributes_of<method_arguments_t<Fn>>::type;
 
 template <class Base, auto Entry>
 struct method_registrar {
@@ -91,8 +122,10 @@ struct method_registrar {
   static int __register(void) {
     // force the compiler to initialize this variable
     (void)__idx;
+    using attributes_t = attributes_of_t<Entry>;
     return CkRegisterEp("???", &method_registrar<Base, Entry>::__call,
-                        CMessage_CkMessage::__idx, index<Base>::__idx, 0);
+                        attributes_t::__idx, index<Base>::__idx,
+                        attributes_t::flags);
   }
 };
 
@@ -117,8 +150,10 @@ struct constructor_registrar {
   static int __register(void) {
     // force the compiler to initialize this variable
     (void)__idx;
+    using attributes_t = method_attributes<Args...>;
     return CkRegisterEp("???", &constructor_registrar<Base, Args...>::__call,
-                        CMessage_CkMessage::__idx, index<Base>::__idx, 0);
+                        attributes_t::__idx, index<Base>::__idx,
+                        attributes_t::flags);
   }
 };
 

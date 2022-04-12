@@ -42,7 +42,7 @@ struct array_proxy : public CProxy_ArrayBase {
 
   template <auto Entry, typename... Args>
   void broadcast(Args &&...args) {
-    auto *msg = ck::pack(std::forward<Args>(args)..., nullptr);
+    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
     auto ep = index<Base>::template method_index<Entry>();
     UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
     ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
@@ -54,7 +54,7 @@ template <typename Base, typename Index, typename... Args>
 struct creator<array_proxy<Base, Index>, Index, Args...> {
   static array_proxy<Base, Index> create(const Index &end, Args &&...args) {
     CkArrayOptions opts(end);
-    auto *msg = ck::pack(std::forward<Args>(args)..., nullptr);
+    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
     auto ctor = index<Base>::template constructor_index<Args...>();
     UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
     return CProxy_ArrayBase::ckCreateArray((CkArrayMessage *)msg, ctor, opts);

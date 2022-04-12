@@ -1,15 +1,27 @@
 #ifndef CK_PUP_HPP
 #define CK_PUP_HPP
 
-#include <charm++.h>
+#include <ck/traits.hpp>
 
 namespace ck {
 
 template <typename T, typename Enable = void>
 struct packer;
 
-template <typename... Args>
-struct packer<std::tuple<Args...>> {
+template <typename T, typename Enable = void>
+struct unpacker;
+
+template <typename T>
+struct packer<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
+  CkMessage* operator()(CkEntryOptions* opts, T* t) const {
+    // TODO ( copy entry options to message if non-null )
+    return static_cast<CkMessage*>(t);
+  }
+};
+
+template <typename... Ts>
+struct packer<std::tuple<Ts...>, std::enable_if_t<!is_message_v<Ts...>>> {
+  template <typename... Args>
   CkMessage* operator()(CkEntryOptions* opts, Args&&... args) const {
     auto pack = std::forward_as_tuple(args...);
     auto size = PUP::size(pack);
@@ -19,29 +31,17 @@ struct packer<std::tuple<Args...>> {
   }
 };
 
-template <typename... Args>
-CkMessage* pack(Args&&... args, CkEntryOptions* opts) {
-  using tuple_t = std::tuple<std::decay_t<Args>...>;
-  return packer<tuple_t>()(opts, std::forward<Args>(args)...);
-}
+template <typename T>
+struct unpacker<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
+  std::tuple<T*> msg_;
 
-template <typename T, typename Enable = void>
-struct unpacker;
+  unpacker(void* msg) : msg_((T*)msg) {}
 
-// template <typename T>
-// struct unpacker<std::tuple<T*>, std::enable_if_t<std::is_base_of_v<CkMessage,
-// T>>> {
-//   std::tuple<T*> msg_;
-
-//   unpacker(void* msg) : msg_((T*)msg) {}
-
-//   std::tuple<T*>& value(void) {
-//     return this->msg_;
-//   }
-// };
+  std::tuple<T*>& value(void) { return this->msg_; }
+};
 
 template <typename... Args>
-struct unpacker<std::tuple<Args...>> {
+struct unpacker<std::tuple<Args...>, std::enable_if_t<!is_message_v<Args...>>> {
   PUP::detail::TemporaryObjectHolder<std::tuple<Args...>> tmp_;
 
   unpacker(void* msg) {
@@ -51,6 +51,12 @@ struct unpacker<std::tuple<Args...>> {
 
   std::tuple<Args...>& value(void) { return tmp_.t; }
 };
+
+template <typename... Args>
+CkMessage* pack(CkEntryOptions* opts, Args&&... args) {
+  using tuple_t = std::tuple<std::decay_t<Args>...>;
+  return packer<tuple_t>()(opts, std::forward<Args>(args)...);
+}
 }  // namespace ck
 
 #endif

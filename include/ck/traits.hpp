@@ -10,6 +10,7 @@ constexpr std::tuple<std::decay_t<Ts>...> decay_types(
     std::tuple<Ts...> const &);
 }
 
+// decay all the types within a tuple
 template <typename T>
 using decay_tuple_t = decltype(decay_types(std::declval<T>()));
 
@@ -25,9 +26,24 @@ template <template <typename...> class Base, typename Derived>
 using is_base_of_template =
     decltype(is_base_of_template_impl<Base>(std::declval<Derived *>()));
 
+// determine whether a class is derived from a templated base class
 template <template <typename...> class Base, typename Derived>
 constexpr auto is_base_of_template_v =
     is_base_of_template<Base, Derived>::value;
+
+namespace {
+template <typename... Ts>
+constexpr bool is_message_impl(void) {
+  if constexpr (sizeof...(Ts) == 1) {
+    return std::is_base_of_v<CkMessage, std::remove_pointer_t<Ts>...>;
+  } else {
+    return false;
+  }
+}
+}  // namespace
+
+template <typename... Ts>
+constexpr auto is_message_v = is_message_impl<Ts...>();
 }  // namespace ck
 
 #endif
