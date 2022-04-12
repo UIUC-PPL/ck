@@ -5,6 +5,7 @@ class hello : public ck::chare<hello, int> {
 public:
   void say_hello_msg(CkDataMsg* msg) {
     this->say_hello_int(*((int*)msg->getData()));
+    delete msg;
   }
 
   void say_hello_int(int data) {
