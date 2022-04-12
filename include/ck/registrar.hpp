@@ -89,7 +89,8 @@ int method_attributes<Args...>::__idx = ([](void) {
   if constexpr (is_message) {
     return __message_idx<std::remove_pointer_t<Args>...>();
   } else {
-    return CkMarshallMsg::__idx;
+    // wildcard -- accepts marshal, reduction messages, etc.
+    return 0;
   }
 })();
 
