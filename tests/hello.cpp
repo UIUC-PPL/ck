@@ -31,8 +31,9 @@ class main : public ck::main_chare<main> {
  public:
   main(int argc, char** argv) {
     int data = 42;
-    // create an array (all the even numbers from 0..(4*CkNumPes))
-    auto proxy = ck::array_proxy<hello>::create(0, 4 * CkNumPes(), 2);
+    // creates an array with the even indices from 0..(4*CkNumPes)
+    ck::constructor_options<hello> opts(0, 4 * CkNumPes(), 2);
+    auto proxy = ck::array_proxy<hello>::create(opts);
     // broadcast via parameter marshaling
     proxy.broadcast<&hello::say_hello_int>(data * 2 + 12);
     // send via conventional messaging

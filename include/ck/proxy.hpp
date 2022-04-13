@@ -1,6 +1,7 @@
 #ifndef CK_PROXY_HPP
 #define CK_PROXY_HPP
 
+#include <ck/options.hpp>
 #include <ck/registrar.hpp>
 
 #define CPROXY_MEMBERS                          \
@@ -130,7 +131,7 @@ struct array_proxy : public CProxy_ArrayBase {
   array_proxy(Args &&...args) : CProxy_ArrayBase(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  static array_proxy<Base, Index> create(Args &&...args) {
+  static auto create(Args &&...args) {
     return creator<proxy_t, std::decay_t<Args>...>()(
         std::forward<Args>(args)...);
   }
@@ -152,69 +153,53 @@ struct array_proxy : public CProxy_ArrayBase {
   }
 };
 
-// initialize options with the given options
-template <typename Options, typename Index, typename Enable = void>
-struct options_initializer {
-  template <typename... Args>
-  void operator()(Options &opts, Args &&...args) const {
-    new (&opts) Options(std::forward<Args>(args)...);
-  }
-};
-
 namespace {
-template <typename Base, typename Index, typename... Sizes, typename... Args>
-array_proxy<Base, Index> __create(std::tuple<Sizes...> sizes,
-                                  std::tuple<Args...> args) {
-  // set up all the options
-  storage_t<CkArrayOptions> storage;
-  auto *epopts = (CkEntryOptions *)nullptr;
-  auto &aropts = reinterpret_cast<CkArrayOptions &>(storage);
-  std::apply(
-      [&](auto... ts) {
-        // initialize the options with the given sizes
-        options_initializer<CkArrayOptions, Index>()(
-            aropts, std::forward<Sizes>(ts)...);
-      },
-      sizes);
+template <typename Base, typename Index, typename... Args>
+array_proxy<Base, Index> __create(const constructor_options<Base> *opts,
+                                  Args &&...args) {
   // pack the arguments into a message (with the entry options)
-  auto *msg = std::apply(
-      [&](auto... ts) { return ck::pack(epopts, std::forward(ts)...); }, args);
+  auto *msg = ck::pack(const_cast<CkEntryOptions *>(&(opts->entry)),
+                       std::forward<Args>(args)...);
   // retrieve the constructor's index
   auto ctor = index<Base>::template constructor_index<Args...>();
   // set the message type
   UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
   // create the array
-  return CProxy_ArrayBase::ckCreateArray((CkArrayMessage *)msg, ctor, aropts);
+  return CProxy_ArrayBase::ckCreateArray((CkArrayMessage *)msg, ctor,
+                                         opts->array);
 }
 }  // namespace
 
-// creator with the end of range given
+// creator with end of range given
 template <typename Base, typename Index, typename... Args>
 struct creator<array_proxy<Base, Index>, Index, Args...> {
   array_proxy<Base, Index> operator()(const Index &end, Args &&...args) const {
-    return __create<Base, Index>(std::forward_as_tuple(end),
-                                 std::forward_as_tuple(args...));
+    constructor_options<Base> opts(end);
+    return __create<Base, Index>(&opts, std::forward<Args>(args)...);
   }
 };
 
-// creator with the start, step, and end of range given
+// creator with options given
 template <typename Base, typename Index, typename... Args>
-struct creator<array_proxy<Base, Index>, Index, Index, Index, Args...> {
-  array_proxy<Base, Index> operator()(const Index &start, const Index &stop,
-                                      const Index &step, Args &&...args) const {
-    auto tuple = std::make_tuple(index_view<Index>::encode(start),
-                                 index_view<Index>::encode(stop),
-                                 index_view<Index>::encode(step));
-    return __create<Base, Index>(tuple, std::forward_as_tuple(args...));
+struct creator<array_proxy<Base, Index>, constructor_options<Base>, Args...> {
+  array_proxy<Base, Index> operator()(const constructor_options<Base> &opts,
+                                      Args &&...args) const {
+    if constexpr ((sizeof...(Args) == 0) &&
+                  !std::is_default_constructible_v<Base>) {
+      auto *msg = CkAllocSysMsg(&(opts.entry));
+      return CkCreateArray((CkArrayMessage *)msg, 0, opts.array);
+    } else {
+      return __create<Base, Index>(&opts, std::forward<Args>(args)...);
+    }
   }
 };
 
-// creator with no sizes given
-template <typename Base, typename Index, typename... Args>
-struct creator<array_proxy<Base, Index>, Args...> {
-  array_proxy<Base, Index> operator()(Args &&...args) const {
-    return __create<Base, Index>(std::make_tuple(),
-                                 std::forward_as_tuple(args...));
+// creator with nothing given
+template <typename Base, typename Index>
+struct creator<array_proxy<Base, Index>> {
+  array_proxy<Base, Index> operator()(void) const {
+    CkArrayOptions opts;
+    return CProxy_ArrayBase::ckCreateEmptyArray(opts);
   }
 };
 
