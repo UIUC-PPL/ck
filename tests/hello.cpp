@@ -2,14 +2,24 @@
 
 class hello : public ck::chare<hello, int> {
   int nRecvd = 0;
-public:
+  int nTotal = CkNumPes() * 4;
+
+ public:
   void say_hello_msg(CkDataMsg* msg) {
     this->say_hello_int(*((int*)msg->getData()));
-    delete msg;
+
+    auto mine = this->index();
+    auto right = mine + 1;
+
+    if (right < nTotal) {
+      thisProxy[right].send<&hello::say_hello_msg>(msg);
+    } else {
+      delete msg;
+    }
   }
 
   void say_hello_int(int data) {
-    CkPrintf("%d> hello with data %d!\n", CkMyPe(), data);
+    CkPrintf("%d> hello with data %d!\n", this->index(), data);
 
     if (++nRecvd == 2) {
       this->contribute(CkCallback(CkCallback::ckExit));
@@ -22,10 +32,10 @@ class main : public ck::main_chare<main> {
   main(int argc, char** argv) {
     int data = 42;
     // create an array
-    auto proxy = ck::array_proxy<hello>::create(CkNumPes());
+    auto proxy = ck::array_proxy<hello>::create(4 * CkNumPes());
     // broadcast via parameter marshaling
     proxy.broadcast<&hello::say_hello_int>(data * 2 + 12);
-    // broadcast via conventional messaging
-    proxy.broadcast<&hello::say_hello_msg>(CkDataMsg::buildNew(1, &data));
+    // send via conventional messaging
+    proxy[0].send<&hello::say_hello_msg>(CkDataMsg::buildNew(1, &data));
   }
 };

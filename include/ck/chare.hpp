@@ -21,6 +21,10 @@ struct chare : public ArrayElement, public CBase {
   void parent_pup(PUP::er &p) {
     recursive_pup<Base>(static_cast<Base *>(this), p);
   }
+
+  const Index &index(void) const {
+    return index_view<Index>::decode(thisIndexMax);
+  }
 };
 
 template <typename T>
