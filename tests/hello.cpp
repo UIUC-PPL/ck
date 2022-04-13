@@ -12,7 +12,8 @@ class hello : public ck::chare<hello, int> {
     auto right = mine + 2;
 
     if (right < nTotal) {
-      thisProxy[right].send<&hello::say_hello_msg>(msg);
+      auto cb = ck::make_callback<&hello::say_hello_msg>(thisProxy[right]);
+      cb.send(msg);
     } else {
       delete msg;
     }

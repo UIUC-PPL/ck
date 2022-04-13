@@ -1,6 +1,7 @@
 #ifndef CK_CK_HPP
 #define CK_CK_HPP
 
+#include <ck/callback.hpp>
 #include <ck/chare.hpp>
 #include <ck/main.hpp>
 
