@@ -3,7 +3,7 @@
 
 #include <ck/registrar.hpp>
 
-#define CPROXY_MEMBERS                         \
+#define CPROXY_MEMBERS                          \
   using local_t = Base;                         \
   using index_t = index<Base>;                  \
   using proxy_t = array_proxy<Base, Index>;     \
