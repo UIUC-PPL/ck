@@ -9,7 +9,7 @@ class hello : public ck::chare<hello, int> {
     this->say_hello_int(*((int*)msg->getData()));
 
     auto mine = thisIndex;
-    auto right = mine + 1;
+    auto right = mine + 2;
 
     if (right < nTotal) {
       thisProxy[right].send<&hello::say_hello_msg>(msg);
@@ -31,8 +31,8 @@ class main : public ck::main_chare<main> {
  public:
   main(int argc, char** argv) {
     int data = 42;
-    // create an array
-    auto proxy = ck::array_proxy<hello>::create(4 * CkNumPes());
+    // create an array (all the even numbers from 0..(4*CkNumPes))
+    auto proxy = ck::array_proxy<hello>::create(0, 4 * CkNumPes(), 2);
     // broadcast via parameter marshaling
     proxy.broadcast<&hello::say_hello_int>(data * 2 + 12);
     // send via conventional messaging

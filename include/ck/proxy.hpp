@@ -118,6 +118,20 @@ struct creator<array_proxy<Base, Index>, Index, Args...> {
   }
 };
 
+// creator with the start, step, and end of range given
+template <typename Base, typename Index, typename... Args>
+struct creator<array_proxy<Base, Index>, Index, Index, Index, Args...> {
+  array_proxy<Base, Index> operator()(const Index &start, const Index &stop, const Index &step,
+                                      Args &&...args) const {
+    auto tuple = std::make_tuple(
+      index_view<Index>::encode(start),
+      index_view<Index>::encode(stop),
+      index_view<Index>::encode(step)
+    );
+    return __create<Base, Index>(tuple, std::forward_as_tuple(args...));
+  }
+};
+
 // creator with no sizes given
 template <typename Base, typename Index, typename... Args>
 struct creator<array_proxy<Base, Index>, Args...> {
