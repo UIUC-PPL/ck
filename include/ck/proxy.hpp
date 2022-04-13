@@ -3,7 +3,7 @@
 
 #include <ck/registrar.hpp>
 
-#define CK_PROXY_FIELDS                         \
+#define CPROXY_MEMBERS                         \
   using local_t = Base;                         \
   using index_t = index<Base>;                  \
   using proxy_t = array_proxy<Base, Index>;     \
@@ -24,7 +24,7 @@ struct section_proxy {};
 
 template <typename Base, typename Index>
 struct element_proxy : public CProxyElement_ArrayBase {
-  CK_PROXY_FIELDS;
+  CPROXY_MEMBERS;
 
   template <typename... Args>
   element_proxy(Args &&...args)
@@ -45,7 +45,7 @@ struct creator;
 
 template <typename Base, typename Index>
 struct array_proxy : public CProxy_ArrayBase {
-  CK_PROXY_FIELDS;
+  CPROXY_MEMBERS;
 
   template <typename... Args>
   array_proxy(Args &&...args) : CProxy_ArrayBase(std::forward<Args>(args)...) {}
