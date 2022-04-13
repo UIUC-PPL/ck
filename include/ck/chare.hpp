@@ -10,20 +10,19 @@ struct chare : public ArrayElement, public CBase {
 
   CBASE_MEMBERS;
 
+  Index thisIndex;
+
   template <typename... Args>
   chare(Args &&...args)
       : ArrayElement(std::forward<Args>(args)...),
-        thisProxy(static_cast<ArrayElement *>(this)) {
+        thisProxy(static_cast<ArrayElement *>(this)),
+        thisIndex(index_view<Index>::decode(thisIndexMax)) {
     // force the compiler to initialize this variable
     (void)chare_registrar<Base>::__idx;
   }
 
   void parent_pup(PUP::er &p) {
     recursive_pup<Base>(static_cast<Base *>(this), p);
-  }
-
-  const Index &index(void) const {
-    return index_view<Index>::decode(thisIndexMax);
   }
 };
 

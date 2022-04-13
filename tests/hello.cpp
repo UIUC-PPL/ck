@@ -8,7 +8,7 @@ class hello : public ck::chare<hello, int> {
   void say_hello_msg(CkDataMsg* msg) {
     this->say_hello_int(*((int*)msg->getData()));
 
-    auto mine = this->index();
+    auto mine = thisIndex;
     auto right = mine + 1;
 
     if (right < nTotal) {
@@ -19,7 +19,7 @@ class hello : public ck::chare<hello, int> {
   }
 
   void say_hello_int(int data) {
-    CkPrintf("%d> hello with data %d!\n", this->index(), data);
+    CkPrintf("%d> hello with data %d!\n", thisIndex, data);
 
     if (++nRecvd == 2) {
       this->contribute(CkCallback(CkCallback::ckExit));
