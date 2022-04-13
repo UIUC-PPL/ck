@@ -49,8 +49,51 @@ struct array_proxy;
 template <typename Base, typename Index = array_index_of_t<Base>>
 struct element_proxy;
 
+namespace {
+template <typename... Left, typename... Right>
+CkSectionInfo &__info(Left &&..., CkSectionInfo &info, Right &&...) {
+  return info;
+}
+}  // namespace
+
 template <typename Base, typename Index = array_index_of_t<Base>>
-struct section_proxy {};
+struct section_proxy : public CProxySection_ArrayBase {
+  CPROXY_MEMBERS;
+
+  template <typename... Args>
+  section_proxy(Args &&...args)
+      : CProxySection_ArrayBase(std::forward<Args>(args)...) {}
+
+  template <typename... Args>
+  static section_proxy<Base, Index> create(Args &&...args) {
+    return CkSectionID(std::forward<Args>(args)...);
+  }
+
+  // NOTE ( should this be called broadcast?       )
+  // TODO ( fix DRY violation w/ array_proxy::send )
+  template <auto Entry, typename... Args>
+  void send(Args &&...args) const {
+    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
+    auto ep = index<Base>::template method_index<Entry>();
+    UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
+    ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
+    const_cast<section_t *>(this)->ckSend((CkArrayMessage *)msg, ep);
+  }
+
+  element_proxy<Base, Index> operator[](const Index &index) const {
+    return element_proxy<Base, Index>(this->ckGetArrayID(),
+                                      index_view<Index>::encode(index),
+                                      CK_DELCTOR_CALL);
+  }
+
+  template <typename... Args>
+  static void contribute(Args &&...args) {
+    auto &sid = __info(args...);
+    auto *arr = CProxy_CkArray(sid.get_aid()).ckLocalBranch();
+    auto *grp = CProxy_CkMulticastMgr(arr->getmCastMgr()).ckLocalBranch();
+    grp->contribute(std::forward<Args>(args)...);
+  }
+};
 
 template <typename Base, typename Index>
 struct element_proxy : public CProxyElement_ArrayBase {
@@ -104,7 +147,8 @@ struct array_proxy : public CProxy_ArrayBase {
 
   element_proxy<Base, Index> operator[](const Index &index) const {
     return element_proxy<Base, Index>(this->ckGetArrayID(),
-                                      index_view<Index>::encode(index));
+                                      index_view<Index>::encode(index),
+                                      CK_DELCTOR_CALL);
   }
 };
 
