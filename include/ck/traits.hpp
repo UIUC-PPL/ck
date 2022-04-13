@@ -44,6 +44,9 @@ constexpr bool is_message_impl(void) {
 
 template <typename... Ts>
 constexpr auto is_message_v = is_message_impl<Ts...>();
+
+template <typename T>
+using storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
 }  // namespace ck
 
 #endif
