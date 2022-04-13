@@ -13,6 +13,36 @@
 
 namespace ck {
 
+// creates a proxy with the given arguments
+template <typename Proxy, typename... Args>
+struct creator;
+
+// proxy for singleton chares
+template <typename Base>
+struct chare_proxy : public CProxy_Chare {
+  using local_t = Base;
+  using index_t = index<Base>;
+  using proxy_t = chare_proxy<Base>;
+  using element_t = chare_proxy<Base>;
+
+  template <typename... Args>
+  chare_proxy(Args &&...args) : CProxy_Chare(std::forward<Args>(args)...) {}
+
+  template <typename... Args>
+  static chare_proxy<Base> create(Args &&...args) {
+    return creator<proxy_t, std::decay_t<Args>...>()(
+        std::forward<Args>(args)...);
+  }
+
+  template <auto Entry, typename... Args>
+  void send(Args &&...args) const {
+    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
+    auto ep = index<Base>::template method_index<Entry>();
+    auto opts = 0;
+    CkSendMsg(ep, msg, &ckGetChareID(), opts);
+  }
+};
+
 template <typename Base, typename Index = array_index_of_t<Base>>
 struct array_proxy;
 
@@ -31,7 +61,7 @@ struct element_proxy : public CProxyElement_ArrayBase {
       : CProxyElement_ArrayBase(std::forward<Args>(args)...) {}
 
   template <auto Entry, typename... Args>
-  void send(Args &&...args) {
+  void send(Args &&...args) const {
     auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
     auto ep = index<Base>::template method_index<Entry>();
     UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
@@ -39,10 +69,6 @@ struct element_proxy : public CProxyElement_ArrayBase {
     ckSend((CkArrayMessage *)msg, ep);
   }
 };
-
-// creates a proxy with the given arguments
-template <typename Proxy, typename... Args>
-struct creator;
 
 template <typename Base, typename Index>
 struct array_proxy : public CProxy_ArrayBase {
@@ -59,7 +85,7 @@ struct array_proxy : public CProxy_ArrayBase {
 
   // TODO ( fix DRY violation w/ element_proxy::send )
   template <auto Entry, typename... Args>
-  void broadcast(Args &&...args) {
+  void broadcast(Args &&...args) const {
     auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
     auto ep = index<Base>::template method_index<Entry>();
     UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
@@ -121,13 +147,11 @@ struct creator<array_proxy<Base, Index>, Index, Args...> {
 // creator with the start, step, and end of range given
 template <typename Base, typename Index, typename... Args>
 struct creator<array_proxy<Base, Index>, Index, Index, Index, Args...> {
-  array_proxy<Base, Index> operator()(const Index &start, const Index &stop, const Index &step,
-                                      Args &&...args) const {
-    auto tuple = std::make_tuple(
-      index_view<Index>::encode(start),
-      index_view<Index>::encode(stop),
-      index_view<Index>::encode(step)
-    );
+  array_proxy<Base, Index> operator()(const Index &start, const Index &stop,
+                                      const Index &step, Args &&...args) const {
+    auto tuple = std::make_tuple(index_view<Index>::encode(start),
+                                 index_view<Index>::encode(stop),
+                                 index_view<Index>::encode(step));
     return __create<Base, Index>(tuple, std::forward_as_tuple(args...));
   }
 };
@@ -138,6 +162,19 @@ struct creator<array_proxy<Base, Index>, Args...> {
   array_proxy<Base, Index> operator()(Args &&...args) const {
     return __create<Base, Index>(std::make_tuple(),
                                  std::forward_as_tuple(args...));
+  }
+};
+
+// creator for singleton chares
+template <typename Base, typename... Args>
+struct creator<chare_proxy<Base>, Args...> {
+  chare_proxy<Base> operator()(Args &&...args) const {
+    CkChareID ret;
+    auto *epopts = (CkEntryOptions *)nullptr;
+    auto *msg = ck::pack(epopts, std::forward<Args>(args)...);
+    auto ctor = index<Base>::template constructor_index<Args...>();
+    CkCreateChare(index<Base>::__idx, ctor, msg, &ret, CK_PE_ANY);
+    return ret;
   }
 };
 }  // namespace ck
