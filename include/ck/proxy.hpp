@@ -68,6 +68,15 @@ struct element_proxy : public CProxyElement_ArrayBase {
     ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
     ckSend((CkArrayMessage *)msg, ep);
   }
+
+  template <typename... Args>
+  void insert(Args &&...args) const {
+    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
+    auto ctor = index<Base>::template constructor_index<Args...>();
+    UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
+    const_cast<element_t *>(this)->ckInsert((CkArrayMessage *)msg, ctor,
+                                            CK_PE_ANY);
+  }
 };
 
 template <typename Base, typename Index>
