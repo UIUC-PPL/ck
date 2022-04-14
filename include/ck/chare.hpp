@@ -9,7 +9,7 @@ template <class Base, class Kind>
 struct chare : public element_of_t<Kind>, public CBase {
   using parent_t = element_of_t<Kind>;
   using collection_index_t = index_of_t<Kind>;
-  using CProxy_Derived = array_proxy<Base, Kind>;
+  using CProxy_Derived = collection_proxy<Base, Kind>;
 
   CBASE_MEMBERS;
 
@@ -21,7 +21,7 @@ struct chare : public element_of_t<Kind>, public CBase {
       : parent_t(std::forward<Args>(args)...),
         thisProxy(static_cast<parent_t *>(this)) {
     // force the compiler to initialize this variable
-    (void)chare_registrar<Base>::__idx;
+    __dummy(chare_registrar<Base>::__idx);
     // conditionally initialize this index
     if constexpr (std::is_same_v<ArrayElement, parent_t>) {
       thisIndex =

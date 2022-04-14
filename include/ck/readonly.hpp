@@ -29,8 +29,8 @@ struct readonly {
   static storage_t<T> __storage;
 
   static T& __access(void) {
-    // force compiler to initalize symbol
-    (void)readonly<T>::__idx;
+    // force the compiler to initialize this variable
+    __dummy(readonly<T>::__idx);
     // initialize readonly during first access
     static bool initialized = false;
     auto& t = reinterpret_cast<T&>(__storage);

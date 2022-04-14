@@ -14,7 +14,7 @@ struct main_chare : public Chare {
   main_chare(Args&&... args)
       : Chare(std::forward<Args>(args)...), thisProxy(this) {
     // force the compiler to initialize this variable
-    (void)chare_registrar<Base>::__idx;
+    __dummy(chare_registrar<Base>::__idx);
   }
 
   static void __register(void) {
@@ -22,7 +22,7 @@ struct main_chare : public Chare {
     CkRegisterBase(__idx, CkIndex_Chare::__idx);
     CkRegisterMainChare(__idx, __idx_main_CkArgMsg());
 
-    auto& entries = ck::index<Base>::__entries;
+    auto& entries = ck::index<Base>::__entries();
     for (auto& entry : entries) {
       (*entry)();
     }

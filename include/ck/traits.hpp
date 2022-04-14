@@ -1,7 +1,7 @@
 #ifndef CK_TRAITS_HPP
 #define CK_TRAITS_HPP
 
-#include <charm++.h>
+#include <ck/common.hpp>
 
 namespace ck {
 namespace {

@@ -30,27 +30,35 @@ struct method_registrar;
 template <typename Base>
 struct index {
   static int __idx;
-  // TODO ( might need to move this to a singleton )
-  static std::vector<index_fn_t> __entries;
+
+  static std::vector<index_fn_t>& __entries(void) {
+    static std::vector<index_fn_t> entries;
+    return entries;
+  }
 
   static void __register(void) {
     using collection_kind_t = kind_of_t<Base>;
-    using collection_index_t = index_of_t<collection_kind_t>;
-    constexpr auto ndims = index_view<collection_index_t>::dimensionality;
 
-    __idx = CkRegisterChare(__PRETTY_FUNCTION__, sizeof(Base), TypeArray);
-    CkRegisterArrayDimensions(__idx, ndims);
-    CkRegisterBase(__idx, CkIndex_ArrayElement::__idx);
+    __idx = CkRegisterChare(__PRETTY_FUNCTION__, sizeof(Base),
+                            collection_kind_t::kind);
+    CkRegisterBase(__idx, collection_kind_t::__idx);
 
-    for (auto& entry : __entries) {
+    if constexpr (is_array_v<collection_kind_t>) {
+      using collection_index_t = index_of_t<collection_kind_t>;
+      constexpr auto ndims = index_view<collection_index_t>::dimensionality;
+      CkRegisterArrayDimensions(__idx, ndims);
+    }
+
+    for (auto& entry : __entries()) {
       (*entry)();
     }
   }
 
   template <index_fn_t Fn>
   static int __append(void) {
-    auto ep = (int)__entries.size();
-    __entries.emplace_back(Fn);
+    auto& entries = __entries();
+    auto ep = (int)entries.size();
+    entries.emplace_back(Fn);
     return ep;
   }
 
@@ -69,9 +77,6 @@ struct index {
 
 template <typename Base>
 int index<Base>::__idx;
-
-template <typename Base>
-std::vector<index_fn_t> index<Base>::__entries;
 
 namespace {
 template <typename Base, typename... Args>
@@ -95,8 +100,8 @@ int method_attributes<Args...>::__idx = ([](void) {
   if constexpr (is_message) {
     return __message_idx<std::remove_pointer_t<Args>...>();
   } else {
-    // wildcard -- accepts marshal, reduction messages, etc.
-    return 0;
+    // TODO ( need to make this a wildcard to accept any message )
+    return CkMarshallMsg::__idx;
   }
 })();
 
@@ -122,13 +127,14 @@ struct method_registrar {
     using arguments_t = method_arguments_t<Entry>;
     using tuple_t = decay_tuple_t<arguments_t>;
     unpacker<tuple_t> t(msg);
-    std::apply([&](auto... args) { (((Base*)obj)->*Entry)(args...); },
-               std::move(t.value()));
+    std::apply(
+        [&](auto... args) { (((Base*)obj)->*Entry)(std::move(args)...); },
+        std::move(t.value()));
   }
 
   static int __register(void) {
     // force the compiler to initialize this variable
-    (void)__idx;
+    __dummy(__idx);
     using attributes_t = attributes_of_t<Entry>;
     return CkRegisterEp(
         __PRETTY_FUNCTION__, &method_registrar<Base, Entry>::__call,
@@ -156,7 +162,7 @@ struct constructor_registrar {
 
   static int __register(void) {
     // force the compiler to initialize this variable
-    (void)__idx;
+    __dummy(__idx);
     using attributes_t = method_attributes<Args...>;
     return CkRegisterEp(
         __PRETTY_FUNCTION__, &constructor_registrar<Base, Args...>::__call,
