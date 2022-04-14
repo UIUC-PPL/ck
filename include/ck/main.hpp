@@ -5,8 +5,10 @@
 
 namespace ck {
 template <typename Base>
-struct chare<Base, main_chare> : public Chare {
-  chare_proxy<Base> thisProxy;
+struct chare<Base, main_chare> : public Chare, public CBase {
+  using CProxy_Derived = chare_proxy<Base>;
+
+  CBASE_MEMBERS;
 
   template <typename... Args>
   chare(Args&&... args) : Chare(std::forward<Args>(args)...), thisProxy(this) {
@@ -37,7 +39,16 @@ struct chare<Base, main_chare> : public Chare {
         CMessage_CkArgMsg::__idx, ck::index<Base>::__idx, CK_EP_NOKEEP);
     return ep;
   }
+
+  void parent_pup(PUP::er &p) {
+    recursive_pup<Base>(static_cast<Base *>(this), p);
+  }
 };
+
+template <class Base>
+void chare<Base, main_chare>::virtual_pup(PUP::er &p) {
+  recursive_pup<Base>(static_cast<Base *>(this), p);
+}
 }  // namespace ck
 
 #endif
