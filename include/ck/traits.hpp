@@ -51,7 +51,7 @@ constexpr auto is_message_v = is_message_impl<Ts...>();
 template <typename T>
 using storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
 
-template <class Base, class Index>
+template <class Base, class Kind>
 struct chare;
 
 template <typename T>

@@ -4,22 +4,31 @@
 #include <ck/proxy.hpp>
 
 namespace ck {
-template <class Base, class Index>
-struct chare : public ArrayElement, public CBase {
-  using array_index_t = Index;
-  using CProxy_Derived = array_proxy<Base, array_index_t>;
+
+template <class Base, class Kind>
+struct chare : public element_of_t<Kind>, public CBase {
+  using parent_t = element_of_t<Kind>;
+  using collection_index_t = index_of_t<Kind>;
+  using CProxy_Derived = array_proxy<Base, Kind>;
 
   CBASE_MEMBERS;
 
-  array_index_t thisIndex;
+  // duplicated for node/groups but c'est la vie
+  collection_index_t thisIndex;
 
   template <typename... Args>
   chare(Args &&...args)
-      : ArrayElement(std::forward<Args>(args)...),
-        thisProxy(static_cast<ArrayElement *>(this)),
-        thisIndex(index_view<Index>::decode(thisIndexMax)) {
+      : parent_t(std::forward<Args>(args)...),
+        thisProxy(static_cast<parent_t *>(this)) {
     // force the compiler to initialize this variable
     (void)chare_registrar<Base>::__idx;
+    // conditionally initialize this index
+    if constexpr (std::is_same_v<ArrayElement, parent_t>) {
+      thisIndex =
+          index_view<collection_index_t>::decode(parent_t::thisIndexMax);
+    } else {
+      thisIndex = parent_t::thisIndex;
+    }
   }
 
   void parent_pup(PUP::er &p) {
@@ -28,15 +37,15 @@ struct chare : public ArrayElement, public CBase {
 };
 
 template <typename T>
-struct array_index_of {
-  template <class Base, class Index>
-  static Index idx__(chare<Base, Index> &);
+struct kind_of {
+  template <class Base, class Kind>
+  static Kind kind_(chare<Base, Kind> &);
 
-  using type = decltype(idx__(std::declval<T &>()));
+  using type = decltype(kind_(std::declval<T &>()));
 };
 
-template <class Base, class Index>
-void chare<Base, Index>::virtual_pup(PUP::er &p) {
+template <class Base, class Kind>
+void chare<Base, Kind>::virtual_pup(PUP::er &p) {
   recursive_pup<Base>(static_cast<Base *>(this), p);
 }
 }  // namespace ck

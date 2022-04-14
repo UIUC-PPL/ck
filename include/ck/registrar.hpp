@@ -2,6 +2,7 @@
 #define CK_REGISTRAR_HPP
 
 #include <ck/index.hpp>
+#include <ck/kind.hpp>
 #include <ck/pup.hpp>
 #include <ck/singleton.hpp>
 
@@ -33,8 +34,9 @@ struct index {
   static std::vector<index_fn_t> __entries;
 
   static void __register(void) {
-    using array_index_t = array_index_of_t<Base>;
-    constexpr auto ndims = index_view<array_index_t>::dimensionality;
+    using collection_kind_t = kind_of_t<Base>;
+    using collection_index_t = index_of_t<collection_kind_t>;
+    constexpr auto ndims = index_view<collection_index_t>::dimensionality;
 
     __idx = CkRegisterChare(__PRETTY_FUNCTION__, sizeof(Base), TypeArray);
     CkRegisterArrayDimensions(__idx, ndims);

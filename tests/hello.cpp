@@ -2,7 +2,7 @@
 
 CK_READONLY(int, nTotal);
 
-class hello : public ck::chare<hello, CkIndex1D> {
+class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
   int nRecvd = 0;
 
  public:

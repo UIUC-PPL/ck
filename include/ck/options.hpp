@@ -41,7 +41,7 @@ struct constructor_options;
 template <typename T>
 struct constructor_options<T, std::enable_if_t<is_array_chare_v<T>>>
     : public method_options {
-  using index_t = array_index_of_t<T>;
+  using index_t = index_of_t<kind_of_t<T>>;
 
  private:
   storage_t<CkArrayOptions> storage_;

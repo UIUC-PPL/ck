@@ -4,12 +4,6 @@
 #include <ck/traits.hpp>
 
 namespace ck {
-template <typename T>
-struct array_index_of;
-
-template <typename Base>
-using array_index_of_t = typename array_index_of<Base>::type;
-
 template <typename T, typename Enable = void>
 struct index_view;
 

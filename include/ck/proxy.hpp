@@ -4,12 +4,13 @@
 #include <ck/options.hpp>
 #include <ck/registrar.hpp>
 
-#define CPROXY_MEMBERS                          \
-  using local_t = Base;                         \
-  using index_t = index<Base>;                  \
-  using proxy_t = array_proxy<Base, Index>;     \
-  using element_t = element_proxy<Base, Index>; \
-  using section_t = section_proxy<Base, Index>; \
+#define CPROXY_MEMBERS                         \
+  using Index = index_of_t<Kind>;              \
+  using local_t = Base;                        \
+  using index_t = index<Base>;                 \
+  using proxy_t = array_proxy<Base, Kind>;     \
+  using element_t = element_proxy<Base, Kind>; \
+  using section_t = section_proxy<Base, Kind>; \
   using array_index_t = Index;
 
 namespace ck {
@@ -44,11 +45,14 @@ struct chare_proxy : public CProxy_Chare {
   }
 };
 
-template <typename Base, typename Index = array_index_of_t<Base>>
+template <typename Base, typename Kind = kind_of_t<Base>>
 struct array_proxy;
 
-template <typename Base, typename Index = array_index_of_t<Base>>
+template <typename Base, typename Kind = kind_of_t<Base>>
 struct element_proxy;
+
+template <typename Base, typename Kind = kind_of_t<Base>>
+struct section_proxy;
 
 namespace {
 template <typename... Left, typename... Right>
@@ -66,7 +70,7 @@ void __array_send(const Send &send, CkEntryOptions *opts, Args &&...args) {
 }
 }  // namespace
 
-template <typename Base, typename Index = array_index_of_t<Base>>
+template <typename Base, typename Kind>
 struct section_proxy : public CProxySection_ArrayBase {
   CPROXY_MEMBERS;
 
@@ -75,7 +79,7 @@ struct section_proxy : public CProxySection_ArrayBase {
       : CProxySection_ArrayBase(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  static section_proxy<Base, Index> create(Args &&...args) {
+  static section_proxy<Base, Kind> create(Args &&...args) {
     return CkSectionID(std::forward<Args>(args)...);
   }
 
@@ -89,10 +93,9 @@ struct section_proxy : public CProxySection_ArrayBase {
         nullptr, std::forward<Args>(args)...);
   }
 
-  element_proxy<Base, Index> operator[](const Index &index) const {
-    return element_proxy<Base, Index>(this->ckGetArrayID(),
-                                      index_view<Index>::encode(index),
-                                      CK_DELCTOR_CALL);
+  element_t operator[](const Index &index) const {
+    return element_t(this->ckGetArrayID(), index_view<Index>::encode(index),
+                     CK_DELCTOR_CALL);
   }
 
   template <typename... Args>
@@ -104,32 +107,41 @@ struct section_proxy : public CProxySection_ArrayBase {
   }
 };
 
-template <typename Base, typename Index>
-struct element_proxy : public CProxyElement_ArrayBase {
+template <typename Base, typename Kind>
+struct element_proxy : public element_proxy_of_t<Kind> {
+  using parent_t = element_proxy_of_t<Kind>;
+
   CPROXY_MEMBERS;
 
   template <typename... Args>
-  element_proxy(Args &&...args)
-      : CProxyElement_ArrayBase(std::forward<Args>(args)...) {}
+  element_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
 
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
-    __array_send<Base, Entry>(
-        [&](CkArrayMessage *msg, int ep) { this->ckSend(msg, ep); }, nullptr,
-        std::forward<Args>(args)...);
+    if constexpr (std::is_same_v<parent_t, CProxyElement_ArrayElement>) {
+      __array_send<Base, Entry>(
+          [&](CkArrayMessage *msg, int ep) { this->ckSend(msg, ep); }, nullptr,
+          std::forward<Args>(args)...);
+    } else {
+      static_assert(always_false<Args...>, "not implemented");
+    }
   }
 
   template <typename... Args>
   void insert(Args &&...args) const {
-    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
-    auto ctor = index<Base>::template constructor_index<Args...>();
-    UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
-    const_cast<element_t *>(this)->ckInsert((CkArrayMessage *)msg, ctor,
-                                            CK_PE_ANY);
+    if constexpr (std::is_same_v<parent_t, CProxy_ArrayElement>) {
+      auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
+      auto ctor = index<Base>::template constructor_index<Args...>();
+      UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
+      const_cast<element_t *>(this)->ckInsert((CkArrayMessage *)msg, ctor,
+                                              CK_PE_ANY);
+    } else {
+      static_assert(always_false<Args...>, "not implemented");
+    }
   }
 };
 
-template <typename Base, typename Index>
+template <typename Base, typename Kind>
 struct array_proxy : public CProxy_ArrayBase {
   CPROXY_MEMBERS;
 
@@ -149,17 +161,16 @@ struct array_proxy : public CProxy_ArrayBase {
         nullptr, std::forward<Args>(args)...);
   }
 
-  element_proxy<Base, Index> operator[](const Index &index) const {
-    return element_proxy<Base, Index>(this->ckGetArrayID(),
-                                      index_view<Index>::encode(index),
-                                      CK_DELCTOR_CALL);
+  element_t operator[](const Index &index) const {
+    return element_t(this->ckGetArrayID(), index_view<Index>::encode(index),
+                     CK_DELCTOR_CALL);
   }
 };
 
 namespace {
-template <typename Base, typename Index, typename... Args>
-array_proxy<Base, Index> __create(const constructor_options<Base> *opts,
-                                  Args &&...args) {
+template <typename Base, typename Kind, typename... Args>
+array_proxy<Base, Kind> __create(const constructor_options<Base> *opts,
+                                 Args &&...args) {
   // pack the arguments into a message (with the entry options)
   auto *msg = ck::pack(const_cast<CkEntryOptions *>(&(opts->entry)),
                        std::forward<Args>(args)...);
@@ -174,33 +185,35 @@ array_proxy<Base, Index> __create(const constructor_options<Base> *opts,
 }  // namespace
 
 // creator with end of range given
-template <typename Base, typename Index, typename... Args>
-struct creator<array_proxy<Base, Index>, Index, Args...> {
-  array_proxy<Base, Index> operator()(const Index &end, Args &&...args) const {
+template <typename Base, typename Kind, typename... Args>
+struct creator<array_proxy<Base, Kind>, Kind, Args...> {
+  using Index = typename array_proxy<Base, Kind>::Index;
+
+  array_proxy<Base, Kind> operator()(const Index &end, Args &&...args) const {
     constructor_options<Base> opts(end);
-    return __create<Base, Index>(&opts, std::forward<Args>(args)...);
+    return __create<Base, Kind>(&opts, std::forward<Args>(args)...);
   }
 };
 
 // creator with options given
-template <typename Base, typename Index, typename... Args>
-struct creator<array_proxy<Base, Index>, constructor_options<Base>, Args...> {
-  array_proxy<Base, Index> operator()(const constructor_options<Base> &opts,
-                                      Args &&...args) const {
+template <typename Base, typename Kind, typename... Args>
+struct creator<array_proxy<Base, Kind>, constructor_options<Base>, Args...> {
+  array_proxy<Base, Kind> operator()(const constructor_options<Base> &opts,
+                                     Args &&...args) const {
     if constexpr ((sizeof...(Args) == 0) &&
                   !std::is_default_constructible_v<Base>) {
       auto *msg = CkAllocSysMsg(&(opts.entry));
       return CkCreateArray((CkArrayMessage *)msg, 0, opts.array);
     } else {
-      return __create<Base, Index>(&opts, std::forward<Args>(args)...);
+      return __create<Base, Kind>(&opts, std::forward<Args>(args)...);
     }
   }
 };
 
 // creator with nothing given
-template <typename Base, typename Index>
-struct creator<array_proxy<Base, Index>> {
-  array_proxy<Base, Index> operator()(void) const {
+template <typename Base, typename Kind>
+struct creator<array_proxy<Base, Kind>> {
+  array_proxy<Base, Kind> operator()(void) const {
     CkArrayOptions opts;
     return CProxy_ArrayBase::ckCreateEmptyArray(opts);
   }
