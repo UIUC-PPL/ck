@@ -308,13 +308,14 @@ struct creator<group_proxy<Base>, Ts...> {
 };
 
 // creator for singleton chares
-template <typename Base, typename... Args>
-struct creator<chare_proxy<Base>, Args...> {
+template <typename Base, typename... Ts>
+struct creator<chare_proxy<Base>, Ts...> {
+  template <typename... Args>
   chare_proxy<Base> operator()(Args &&...args) const {
     CkChareID ret;
     auto *epopts = (CkEntryOptions *)nullptr;
     auto *msg = ck::pack(epopts, std::forward<Args>(args)...);
-    auto ctor = index<Base>::template constructor_index<Args...>();
+    auto ctor = index<Base>::template constructor_index<Ts...>();
     CkCreateChare(index<Base>::__idx, ctor, msg, &ret, CK_PE_ANY);
     return ret;
   }

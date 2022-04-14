@@ -2,6 +2,7 @@
 #define CK_SINGLETON_HPP
 
 namespace ck {
+namespace detail {
 // Helper Singleton Class
 template <typename T, typename SingletonClass>
 class singleton {
@@ -24,14 +25,15 @@ class singleton {
  protected:
   singleton() = default;
 };
+}  // namespace detail
+}  // namespace ck
 
-#define CK_GENERATE_SINGLETON(type, name)     \
-  class name : public singleton<type, name> { \
-   private:                                   \
-    name() = default;                         \
+#define CK_GENERATE_SINGLETON(type, name)                 \
+  class name : public ck::detail::singleton<type, name> { \
+   private:                                               \
+    name() = default;                                     \
   }
 
 #define CK_ACCESS_SINGLETON(name) (*name::instance())
-}  // namespace ck
 
 #endif

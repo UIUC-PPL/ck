@@ -17,9 +17,9 @@ struct chare : public element_of_t<Kind>, public CBase {
   collection_index_t thisIndex;
 
   template <typename... Args>
-  chare(Args &&...args)
+  chare(Args&&... args)
       : parent_t(std::forward<Args>(args)...),
-        thisProxy(static_cast<parent_t *>(this)) {
+        thisProxy(static_cast<parent_t*>(this)) {
     // force the compiler to initialize this variable
     __dummy(chare_registrar<Base>::__idx);
     // conditionally initialize this index
@@ -31,23 +31,91 @@ struct chare : public element_of_t<Kind>, public CBase {
     }
   }
 
-  void parent_pup(PUP::er &p) {
-    recursive_pup<Base>(static_cast<Base *>(this), p);
+  void parent_pup(PUP::er& p) {
+    recursive_pup<Base>(static_cast<Base*>(this), p);
   }
 };
+
+template <typename Base>
+struct chare<Base, singleton> : public Chare, public CBase {
+  using CProxy_Derived = chare_proxy<Base>;
+
+  CBASE_MEMBERS;
+
+  template <typename... Args>
+  chare(Args&&... args) : Chare(std::forward<Args>(args)...), thisProxy(this) {
+    // force the compiler to initialize this variable
+    __dummy(chare_registrar<Base>::__idx);
+  }
+
+  void parent_pup(PUP::er& p) {
+    recursive_pup<Base>(static_cast<Base*>(this), p);
+  }
+};
+
+template <typename Base>
+struct chare<Base, main_chare> : public Chare, public CBase {
+  using CProxy_Derived = chare_proxy<Base>;
+
+  CBASE_MEMBERS;
+
+  template <typename... Args>
+  chare(Args&&... args) : Chare(std::forward<Args>(args)...), thisProxy(this) {
+    // force the compiler to initialize this variable
+    __dummy(chare_registrar<Base>::__idx);
+  }
+
+  static void __register(void) {
+    constexpr auto& __idx = ck::index<Base>::__idx;
+
+    __idx = CkRegisterChare(__PRETTY_FUNCTION__, sizeof(Base), TypeMainChare);
+    CkRegisterBase(__idx, CkIndex_Chare::__idx);
+    CkRegisterMainChare(__idx, __idx_main_CkArgMsg());
+
+    auto& entries = ck::index<Base>::__entries();
+    for (auto& entry : entries) {
+      (*entry)();
+    }
+  }
+
+  static int __idx_main_CkArgMsg(void) {
+    static int ep = CkRegisterEp(
+        __PRETTY_FUNCTION__,
+        [](void* msg, void* obj) {
+          auto* amsg = (CkArgMsg*)msg;
+          new ((Base*)obj) Base(amsg->argc, amsg->argv);
+        },
+        CMessage_CkArgMsg::__idx, ck::index<Base>::__idx, CK_EP_NOKEEP);
+    return ep;
+  }
+
+  void parent_pup(PUP::er& p) {
+    recursive_pup<Base>(static_cast<Base*>(this), p);
+  }
+};
+
+template <class Base, class Kind>
+void chare<Base, Kind>::virtual_pup(PUP::er& p) {
+  recursive_pup<Base>(static_cast<Base*>(this), p);
+}
+
+template <class Base>
+void chare<Base, singleton>::virtual_pup(PUP::er& p) {
+  recursive_pup<Base>(static_cast<Base*>(this), p);
+}
+
+template <class Base>
+void chare<Base, main_chare>::virtual_pup(PUP::er& p) {
+  recursive_pup<Base>(static_cast<Base*>(this), p);
+}
 
 template <typename T>
 struct kind_of {
   template <class Base, class Kind>
-  static Kind kind_(chare<Base, Kind> &);
+  static Kind kind_(chare<Base, Kind>&);
 
-  using type = decltype(kind_(std::declval<T &>()));
+  using type = decltype(kind_(std::declval<T&>()));
 };
-
-template <class Base, class Kind>
-void chare<Base, Kind>::virtual_pup(PUP::er &p) {
-  recursive_pup<Base>(static_cast<Base *>(this), p);
-}
 }  // namespace ck
 
 #endif

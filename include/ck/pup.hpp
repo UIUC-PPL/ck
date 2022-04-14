@@ -22,8 +22,8 @@ struct packer<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
 template <typename... Ts>
 struct packer<std::tuple<Ts...>, std::enable_if_t<!is_message_v<Ts...>>> {
   template <typename... Args>
-  CkMessage* operator()(CkEntryOptions* opts, Args&&... args) const {
-    auto pack = std::forward_as_tuple(args...);
+  CkMessage* operator()(CkEntryOptions* opts, const Args&... args) const {
+    auto pack = std::forward_as_tuple(const_cast<Args&>(args)...);
     auto size = PUP::size(pack);
     auto* msg = CkAllocateMarshallMsg(size, opts);
     PUP::toMemBuf(pack, (void*)msg->msgBuf, size);
@@ -53,9 +53,8 @@ struct unpacker<std::tuple<Args...>, std::enable_if_t<!is_message_v<Args...>>> {
 };
 
 template <typename... Args>
-CkMessage* pack(CkEntryOptions* opts, Args&&... args) {
-  using tuple_t = std::tuple<std::decay_t<Args>...>;
-  return packer<tuple_t>()(opts, std::forward<Args>(args)...);
+CkMessage* pack(CkEntryOptions* opts, const Args&... args) {
+  return packer<std::tuple<std::decay_t<Args>...>>()(opts, args...);
 }
 }  // namespace ck
 

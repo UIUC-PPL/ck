@@ -37,7 +37,15 @@ struct array {
   static constexpr auto& __idx = CkIndex_ArrayElement::__idx;
 };
 
-struct main_chare {};
+struct singleton {
+  using proxy_t = CProxy_Chare;
+  static constexpr kind_t kind = TypeChare;
+  static constexpr auto& __idx = CkIndex_Chare::__idx;
+};
+
+struct main_chare : public singleton {
+  static constexpr kind_t kind = TypeMainChare;
+};
 
 template <typename T>
 struct kind_of;

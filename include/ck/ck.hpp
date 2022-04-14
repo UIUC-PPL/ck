@@ -3,7 +3,6 @@
 
 #include <ck/callback.hpp>
 #include <ck/chare.hpp>
-#include <ck/main.hpp>
 #include <ck/readonly.hpp>
 
 namespace ck {

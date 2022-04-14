@@ -1,7 +1,10 @@
 INCLUDES:=$(INCLUDES) -I../include
 OPTS:=$(OPTS) -c++-option -std=c++17 $(INCLUDES)
 
-all: hello.out histogram.out
+all: fib.out hello.out histogram.out
+
+fib.out: fib.cpp
+	charmc $(OPTS) fib.cpp -o fib.out
 
 hello.out: hello.cpp
 	charmc $(OPTS) hello.cpp -o hello.out
