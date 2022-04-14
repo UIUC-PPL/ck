@@ -10,6 +10,9 @@ constexpr std::tuple<std::decay_t<Ts>...> decay_types(
     std::tuple<Ts...> const &);
 }
 
+template <class... T>
+constexpr bool always_false = false;
+
 // decay all the types within a tuple
 template <typename T>
 using decay_tuple_t = decltype(decay_types(std::declval<T>()));

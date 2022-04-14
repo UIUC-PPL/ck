@@ -13,18 +13,25 @@ struct method_options {
 template <typename... Ts>
 struct options_initializer;
 
-template <>
-struct options_initializer<CkArrayOptions, int, int> {
-  void operator()(CkArrayOptions& opts, int stop) const {
-    new (&opts) CkArrayOptions(stop);
+template <typename Index>
+struct options_initializer<CkArrayOptions, Index, Index> {
+  void operator()(CkArrayOptions& opts, const Index& stop) const {
+    if constexpr (std::is_same_v<Index, int>) {
+      new (&opts) CkArrayOptions(stop);
+    } else {
+      // TODO ( implement other code-paths... )
+      static_assert(always_false<Index>, "not implemented");
+    }
   }
 };
 
-template <>
-struct options_initializer<CkArrayOptions, int, int, int, int> {
-  void operator()(CkArrayOptions& opts, int start, int stop, int step) const {
-    new (&opts) CkArrayOptions(CkArrayIndex1D(start), CkArrayIndex1D(stop),
-                               CkArrayIndex1D(step));
+template <typename Index>
+struct options_initializer<CkArrayOptions, Index, Index, Index, Index> {
+  void operator()(CkArrayOptions& opts, const Index& start, const Index& stop,
+                  const Index& step) const {
+    new (&opts) CkArrayOptions(index_view<Index>::encode(start),
+                               index_view<Index>::encode(stop),
+                               index_view<Index>::encode(step));
   }
 };
 
