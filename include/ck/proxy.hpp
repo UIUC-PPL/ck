@@ -55,6 +55,15 @@ template <typename... Left, typename... Right>
 CkSectionInfo &__info(Left &&..., CkSectionInfo &info, Right &&...) {
   return info;
 }
+
+template <typename Base, auto Entry, typename Send, typename... Args>
+void __array_send(const Send &send, CkEntryOptions *opts, Args &&...args) {
+  auto *msg = ck::pack(opts, std::forward<Args>(args)...);
+  auto ep = index<Base>::template method_index<Entry>();
+  UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
+  ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  send((CkArrayMessage *)msg, ep);
+}
 }  // namespace
 
 template <typename Base, typename Index = array_index_of_t<Base>>
@@ -71,14 +80,13 @@ struct section_proxy : public CProxySection_ArrayBase {
   }
 
   // NOTE ( should this be called broadcast?       )
-  // TODO ( fix DRY violation w/ array_proxy::send )
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
-    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
-    auto ep = index<Base>::template method_index<Entry>();
-    UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
-    ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
-    const_cast<section_t *>(this)->ckSend((CkArrayMessage *)msg, ep);
+    __array_send<Base, Entry>(
+        [&](CkArrayMessage *msg, int ep) {
+          const_cast<section_t *>(this)->ckSend(msg, ep);
+        },
+        nullptr, std::forward<Args>(args)...);
   }
 
   element_proxy<Base, Index> operator[](const Index &index) const {
@@ -106,11 +114,9 @@ struct element_proxy : public CProxyElement_ArrayBase {
 
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
-    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
-    auto ep = index<Base>::template method_index<Entry>();
-    UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
-    ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
-    ckSend((CkArrayMessage *)msg, ep);
+    __array_send<Base, Entry>(
+        [&](CkArrayMessage *msg, int ep) { this->ckSend(msg, ep); }, nullptr,
+        std::forward<Args>(args)...);
   }
 
   template <typename... Args>
@@ -136,14 +142,11 @@ struct array_proxy : public CProxy_ArrayBase {
         std::forward<Args>(args)...);
   }
 
-  // TODO ( fix DRY violation w/ element_proxy::send )
   template <auto Entry, typename... Args>
   void broadcast(Args &&...args) const {
-    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
-    auto ep = index<Base>::template method_index<Entry>();
-    UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
-    ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
-    ckBroadcast((CkArrayMessage *)msg, ep);
+    __array_send<Base, Entry>(
+        [&](CkArrayMessage *msg, int ep) { this->ckBroadcast(msg, ep); },
+        nullptr, std::forward<Args>(args)...);
   }
 
   element_proxy<Base, Index> operator[](const Index &index) const {
