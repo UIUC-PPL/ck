@@ -4,6 +4,7 @@
 #include <ck/callback.hpp>
 #include <ck/chare.hpp>
 #include <ck/main.hpp>
+#include <ck/readonly.hpp>
 
 namespace ck {
 template <typename T>
@@ -25,9 +26,14 @@ int chare_registrar<Base>::__register(void) {
 }  // namespace ck
 
 extern "C" void CkRegisterMainModule(void) {
-  auto& registry = CK_ACCESS_SINGLETON(ck::chare_registry);
-  for (auto& chare : registry) {
+  auto& chares = CK_ACCESS_SINGLETON(ck::chare_registry);
+  for (auto& chare : chares) {
     (*chare)();
+  }
+
+  auto& readonlies = CK_ACCESS_SINGLETON(ck::readonly_registry);
+  for (auto& readonly : readonlies) {
+    (*readonly)();
   }
 }
 

@@ -1,8 +1,9 @@
 #include <ck/ck.hpp>
 
+CK_READONLY(int, nTotal);
+
 class hello : public ck::chare<hello, int> {
   int nRecvd = 0;
-  int nTotal = CkNumPes() * 4;
 
  public:
   void say_hello_msg(CkDataMsg* msg) {
@@ -33,7 +34,8 @@ class main : public ck::main_chare<main> {
   main(int argc, char** argv) {
     int data = 42;
     // creates an array with the even indices from 0..(4*CkNumPes)
-    ck::constructor_options<hello> opts(0, 4 * CkNumPes(), 2);
+    nTotal = 4 * CkNumPes();
+    ck::constructor_options<hello> opts(0, nTotal, 2);
     auto proxy = ck::array_proxy<hello>::create(opts);
     // broadcast via parameter marshaling
     proxy.broadcast<&hello::say_hello_int>(data * 2 + 12);
