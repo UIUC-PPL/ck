@@ -37,6 +37,8 @@ struct array {
   static constexpr auto& __idx = CkIndex_ArrayElement::__idx;
 };
 
+struct main_chare {};
+
 template <typename T>
 struct kind_of;
 
@@ -66,6 +68,9 @@ struct is_array<array<Index>> : public std::true_type {};
 
 template <typename T>
 constexpr auto is_array_v = is_array<T>::value;
+
+template <typename T>
+constexpr auto is_main_chare_v = std::is_same_v<main_chare, kind_of_t<T>>;
 }  // namespace ck
 
 #endif

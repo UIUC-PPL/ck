@@ -23,7 +23,7 @@ class Histogram : public ck::chare<Histogram, ck::array<CkIndex1D>> {
   void count(std::vector<int>&& binValues);
 };
 
-class Main : public ck::main_chare<Main> {
+class Main : public ck::chare<Main, ck::main_chare> {
   int nChares;
   int nElementsPerChare;
   int maxElementValue;
@@ -39,8 +39,6 @@ CK_READONLY(ck::chare_proxy<Main>, mainProxy);
 CK_READONLY(ck::array_proxy<Histogram>, histogramProxy);
 CK_READONLY(ck::group_proxy<HistogramMerger>, histogramMergerProxy);
 
-extern "C" void CkRegisterMainModule(void) {
-  ck::__register();
-}
+extern "C" void CkRegisterMainModule(void) { ck::__register(); }
 
 #endif

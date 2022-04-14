@@ -29,7 +29,7 @@ class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
   }
 };
 
-class main : public ck::main_chare<main> {
+class main : public ck::chare<main, ck::main_chare> {
  public:
   main(int argc, char** argv) {
     int data = 42;
@@ -44,6 +44,4 @@ class main : public ck::main_chare<main> {
   }
 };
 
-extern "C" void CkRegisterMainModule(void) {
-  ck::__register();
-}
+extern "C" void CkRegisterMainModule(void) { ck::__register(); }

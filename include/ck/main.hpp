@@ -1,23 +1,22 @@
 #ifndef CK_MAIN_HPP
 #define CK_MAIN_HPP
 
-#include <ck/proxy.hpp>
+#include <ck/chare.hpp>
 
 namespace ck {
 template <typename Base>
-struct main_chare : public Chare {
-  static int& __idx;
-
+struct chare<Base, main_chare> : public Chare {
   chare_proxy<Base> thisProxy;
 
   template <typename... Args>
-  main_chare(Args&&... args)
-      : Chare(std::forward<Args>(args)...), thisProxy(this) {
+  chare(Args&&... args) : Chare(std::forward<Args>(args)...), thisProxy(this) {
     // force the compiler to initialize this variable
     __dummy(chare_registrar<Base>::__idx);
   }
 
   static void __register(void) {
+    constexpr auto& __idx = ck::index<Base>::__idx;
+
     __idx = CkRegisterChare(__PRETTY_FUNCTION__, sizeof(Base), TypeMainChare);
     CkRegisterBase(__idx, CkIndex_Chare::__idx);
     CkRegisterMainChare(__idx, __idx_main_CkArgMsg());
@@ -35,13 +34,10 @@ struct main_chare : public Chare {
           auto* amsg = (CkArgMsg*)msg;
           new ((Base*)obj) Base(amsg->argc, amsg->argv);
         },
-        CMessage_CkArgMsg::__idx, __idx, CK_EP_NOKEEP);
+        CMessage_CkArgMsg::__idx, ck::index<Base>::__idx, CK_EP_NOKEEP);
     return ep;
   }
 };
-
-template <typename Base>
-int& main_chare<Base>::__idx = chare_registrar<Base>::__idx;
-};  // namespace ck
+}  // namespace ck
 
 #endif

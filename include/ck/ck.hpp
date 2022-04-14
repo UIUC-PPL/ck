@@ -7,14 +7,11 @@
 #include <ck/readonly.hpp>
 
 namespace ck {
-template <typename T>
-constexpr auto is_main_chare_v = is_base_of_template_v<main_chare, T>;
-
 template <typename Base>
 int chare_registrar<Base>::__register(void) {
   register_fn_t fn;
   if constexpr (is_main_chare_v<Base>) {
-    fn = &(ck::main_chare<Base>::__register);
+    fn = &(ck::chare<Base, main_chare>::__register);
   } else {
     fn = &(ck::index<Base>::__register);
   }
