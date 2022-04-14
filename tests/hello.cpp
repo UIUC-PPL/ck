@@ -43,3 +43,7 @@ class main : public ck::main_chare<main> {
     proxy[0].send<&hello::say_hello_msg>(CkDataMsg::buildNew(1, &data));
   }
 };
+
+extern "C" void CkRegisterMainModule(void) {
+  ck::__register();
+}

@@ -39,4 +39,8 @@ CK_READONLY(ck::chare_proxy<Main>, mainProxy);
 CK_READONLY(ck::array_proxy<Histogram>, histogramProxy);
 CK_READONLY(ck::group_proxy<HistogramMerger>, histogramMergerProxy);
 
+extern "C" void CkRegisterMainModule(void) {
+  ck::__register();
+}
+
 #endif

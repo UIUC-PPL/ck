@@ -23,18 +23,18 @@ int chare_registrar<Base>::__register(void) {
   registry.emplace_back(fn);
   return ep;
 }
-}  // namespace ck
 
-extern "C" void CkRegisterMainModule(void) {
-  auto& chares = CK_ACCESS_SINGLETON(ck::chare_registry);
+inline void __register(void) {
+  auto& chares = CK_ACCESS_SINGLETON(chare_registry);
   for (auto& chare : chares) {
     (*chare)();
   }
 
-  auto& readonlies = CK_ACCESS_SINGLETON(ck::readonly_registry);
+  auto& readonlies = CK_ACCESS_SINGLETON(readonly_registry);
   for (auto& readonly : readonlies) {
     (*readonly)();
   }
 }
+}  // namespace ck
 
 #endif

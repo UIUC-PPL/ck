@@ -1,4 +1,5 @@
 #include "histogram.hpp"
+
 Histogram::Histogram(int nElementsPerChare, int maxElementValue) {
   // Create a set of random values within the range [0,maxElementValue)
   myValues.resize(nElementsPerChare);
