@@ -50,12 +50,6 @@ constexpr auto is_message_v = is_message_impl<Ts...>();
 
 template <typename T>
 using storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
-
-template <class Base, class Kind>
-struct chare;
-
-template <typename T>
-constexpr auto is_array_chare_v = is_base_of_template_v<chare, T>;
 }  // namespace ck
 
 #endif

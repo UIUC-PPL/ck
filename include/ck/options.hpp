@@ -39,7 +39,7 @@ template <typename T, typename Enable = void>
 struct constructor_options;
 
 template <typename T>
-struct constructor_options<T, std::enable_if_t<is_array_chare_v<T>>>
+struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>>
     : public method_options {
   using index_t = index_of_t<kind_of_t<T>>;
 
