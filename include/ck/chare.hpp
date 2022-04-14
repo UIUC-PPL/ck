@@ -6,11 +6,12 @@
 namespace ck {
 template <class Base, class Index>
 struct chare : public ArrayElement, public CBase {
-  using CProxy_Derived = array_proxy<Base, Index>;
+  using array_index_t = Index;
+  using CProxy_Derived = array_proxy<Base, array_index_t>;
 
   CBASE_MEMBERS;
 
-  Index thisIndex;
+  array_index_t thisIndex;
 
   template <typename... Args>
   chare(Args &&...args)
