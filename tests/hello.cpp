@@ -13,8 +13,7 @@ class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
     auto right = mine + 2;
 
     if (right < nTotal) {
-      auto cb = ck::make_callback<&hello::say_hello_msg>(thisProxy[right]);
-      cb.send(msg);
+      thisProxy[right].send<&hello::say_hello_msg>(msg);
     } else {
       delete msg;
     }
@@ -28,6 +27,9 @@ class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
     }
   }
 };
+
+// calls with perfect forwarding when its available
+CK_INLINE_ENTRY(&hello::say_hello_msg);
 
 class main : public ck::chare<main, ck::main_chare> {
  public:

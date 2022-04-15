@@ -92,7 +92,6 @@ int __message_idx(void) {
 template <typename... Args>
 struct method_attributes {
   static constexpr auto is_message = is_message_v<std::decay_t<Args>...>;
-  static constexpr auto flags = is_message ? 0 : CK_EP_NOKEEP;
   static int __idx;
 };
 
@@ -182,7 +181,7 @@ struct method_registrar {
     using attributes_t = attributes_of_t<Entry>;
     return CkRegisterEp(__PRETTY_FUNCTION__, __choose_call(),
                         attributes_t::__idx, index<Base>::__idx,
-                        attributes_t::flags);
+                        registration_flags<Entry>);
   }
 };
 
@@ -208,9 +207,10 @@ struct constructor_registrar {
     // force the compiler to initialize this variable
     __dummy(__idx);
     using attributes_t = method_attributes<Args...>;
-    return CkRegisterEp(
-        __PRETTY_FUNCTION__, &constructor_registrar<Base, Args...>::__call,
-        attributes_t::__idx, index<Base>::__idx, attributes_t::flags);
+    constexpr auto flags = attributes_t::is_message ? 0 : CK_EP_NOKEEP;
+    return CkRegisterEp(__PRETTY_FUNCTION__,
+                        &constructor_registrar<Base, Args...>::__call,
+                        attributes_t::__idx, index<Base>::__idx, flags);
   }
 };
 
