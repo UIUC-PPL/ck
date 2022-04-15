@@ -38,7 +38,7 @@ class main : public ck::chare<main, ck::main_chare> {
     ck::constructor_options<hello> opts(0, nTotal, 2);
     auto proxy = ck::array_proxy<hello>::create(opts);
     // broadcast via parameter marshaling
-    proxy.broadcast<&hello::say_hello_int>(data * 2 + 12);
+    proxy.send<&hello::say_hello_int>(data * 2 + 12);
     // send via conventional messaging
     proxy[0].send<&hello::say_hello_msg>(CkDataMsg::buildNew(1, &data));
   }

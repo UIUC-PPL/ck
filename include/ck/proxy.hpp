@@ -91,7 +91,6 @@ struct section_proxy : public section_proxy_of_t<Kind> {
     return CkSectionID(std::forward<Args>(args)...);
   }
 
-  // NOTE ( should this be called broadcast?       )
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
     if constexpr (std::is_same_v<CProxySection_ArrayElement, parent_t>) {
@@ -179,7 +178,7 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
   }
 
   template <auto Entry, typename... Args>
-  void broadcast(Args &&...args) const {
+  void send(Args &&...args) const {
     if constexpr (is_array) {
       __array_send<Base, Entry>(
           [&](CkArrayMessage *msg, int ep) { this->ckBroadcast(msg, ep); },

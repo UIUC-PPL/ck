@@ -37,13 +37,13 @@ struct array {
   static constexpr auto& __idx = CkIndex_ArrayElement::__idx;
 };
 
-struct singleton {
+struct singleton_chare {
   using proxy_t = CProxy_Chare;
   static constexpr kind_t kind = TypeChare;
   static constexpr auto& __idx = CkIndex_Chare::__idx;
 };
 
-struct main_chare : public singleton {
+struct main_chare : public singleton_chare {
   static constexpr kind_t kind = TypeMainChare;
 };
 

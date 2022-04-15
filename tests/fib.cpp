@@ -5,7 +5,7 @@
 static_assert(THRESHOLD >= 3);
 
 template <typename T>
-class fib : public ck::chare<fib<T>, ck::singleton> {
+class fib : public ck::chare<fib<T>, ck::singleton_chare> {
   ck::callback<T> cb_;
   int nRemaining_;
   T sum_;

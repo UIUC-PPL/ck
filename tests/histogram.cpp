@@ -35,7 +35,7 @@ Main::Main(int argc, char **argv) {
   // Tell Histogram chare array elements to register themselves with their
   // groups. This is done so that each local branch of the HistogramMerger group
   // knows the number of chares from which to expect submissions.
-  histogramProxy.broadcast<&Histogram::registerWithMerger>();
+  histogramProxy.send<&Histogram::registerWithMerger>();
 }
 
 void Main::charesRegistered(void) {
@@ -56,7 +56,7 @@ void Main::charesRegistered(void) {
   // Broadcast these bin keys to the Histogram chare array. This will cause
   // each chare to iterate through its set of values and count the number of
   // values that falls into the range implied by each bin.
-  histogramProxy.broadcast<&Histogram::count>(bins);
+  histogramProxy.send<&Histogram::count>(bins);
 }
 
 void Main::receiveHistogram(CkReductionMsg *msg) {

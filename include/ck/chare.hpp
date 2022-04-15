@@ -37,7 +37,7 @@ struct chare : public element_of_t<Kind>, public CBase {
 };
 
 template <typename Base>
-struct chare<Base, singleton> : public Chare, public CBase {
+struct chare<Base, singleton_chare> : public Chare, public CBase {
   using CProxy_Derived = chare_proxy<Base>;
 
   CBASE_MEMBERS;
@@ -100,7 +100,7 @@ void chare<Base, Kind>::virtual_pup(PUP::er& p) {
 }
 
 template <class Base>
-void chare<Base, singleton>::virtual_pup(PUP::er& p) {
+void chare<Base, singleton_chare>::virtual_pup(PUP::er& p) {
   recursive_pup<Base>(static_cast<Base*>(this), p);
 }
 
