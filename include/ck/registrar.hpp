@@ -1,6 +1,7 @@
 #ifndef CK_REGISTRAR_HPP
 #define CK_REGISTRAR_HPP
 
+#include <ck/attributes.hpp>
 #include <ck/index.hpp>
 #include <ck/kind.hpp>
 #include <ck/pup.hpp>
@@ -123,6 +124,12 @@ template <class Base, auto Entry>
 struct method_registrar {
   static int __idx;
 
+  static constexpr auto is_exclusive = is_exclusive_v<Entry>;
+  static constexpr auto is_threaded = is_threaded_v<Entry>;
+
+  static_assert(!is_exclusive ||
+                (std::is_same_v<nodegroup, kind_of_t<Base>> && !is_threaded));
+
   static void __call(void* msg, void* obj) {
     using arguments_t = method_arguments_t<Entry>;
     using tuple_t = decay_tuple_t<arguments_t>;
@@ -132,13 +139,50 @@ struct method_registrar {
         std::move(t.value()));
   }
 
+  static void __thrcall(void* arg_) {
+    auto* arg = reinterpret_cast<CkThrCallArg*>(arg_);
+    auto *msg = arg->msg, *obj = arg->obj;
+    delete arg;
+    __call(msg, obj);
+  }
+
+  static void __call_threaded(void* msg, void* obj) {
+    // TODO ( allow users to specify the stack size here )
+    auto tid = CthCreate(__thrcall, new CkThrCallArg(msg, obj), 0);
+    (reinterpret_cast<Chare*>(obj))->CkAddThreadListeners(tid, msg);
+    CthTraceResume(tid);
+    CthResume(tid);
+  }
+
+  static void __call_exclusive(void* msg, void* obj) {
+    auto* grp = reinterpret_cast<NodeGroup*>(obj);
+    if (CmiTryLock(grp->__nodelock)) {
+      auto ep = ck::index<Base>::template method_index<Entry>();
+      CkSendMsgNodeBranch(ep, msg, CkMyNode(), grp->CkGetNodeGroupID());
+      return;
+    }
+    __call(msg, obj);
+    CmiUnlock(grp->__nodelock);
+  }
+
+  // choose which call function via user attributes
+  static constexpr auto __choose_call(void) {
+    if constexpr (is_threaded) {
+      return __call_threaded;
+    } else if constexpr (is_exclusive) {
+      return __call_exclusive;
+    } else {
+      return __call;
+    }
+  }
+
   static int __register(void) {
     // force the compiler to initialize this variable
     __dummy(__idx);
     using attributes_t = attributes_of_t<Entry>;
-    return CkRegisterEp(
-        __PRETTY_FUNCTION__, &method_registrar<Base, Entry>::__call,
-        attributes_t::__idx, index<Base>::__idx, attributes_t::flags);
+    return CkRegisterEp(__PRETTY_FUNCTION__, __choose_call(),
+                        attributes_t::__idx, index<Base>::__idx,
+                        attributes_t::flags);
   }
 };
 
