@@ -13,4 +13,4 @@ histogram.out: histogram.cpp histogram.hpp
 	charmc $(OPTS) histogram.cpp -o histogram.out
 
 clean:
-	rm -f charmrun hello.out histogram.out
+	rm -f charmrun fib.out hello.out histogram.out
