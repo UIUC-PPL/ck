@@ -53,6 +53,31 @@ using storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
 
 template <auto First, typename... Rest>
 constexpr auto get_first_v = First;
+
+namespace {
+template <typename T>
+struct tag {
+  using type = T;
+};
+}  // namespace
+
+template <typename T, typename Enable = void>
+struct get_last;
+
+template <>
+struct get_last<std::tuple<>> {
+  using type = void;
+};
+
+template <typename... Ts>
+struct get_last<std::tuple<Ts...>, std::enable_if_t<(sizeof...(Ts) >= 1)>> {
+  // Use a fold-expression to fold the comma operator over the parameter pack.
+  using type = typename decltype((tag<Ts>{}, ...))::type;
+};
+
+// returns the last type in a parameter pack
+template <typename... Ts>
+using get_last_t = typename get_last<std::tuple<Ts...>>::type;
 }  // namespace ck
 
 #endif

@@ -3,6 +3,7 @@
 
 #include <ck/options.hpp>
 #include <ck/registrar.hpp>
+#include <variant>
 
 #define CPROXY_MEMBERS                               \
   using Index = index_of_t<Kind>;                    \
@@ -56,6 +57,38 @@ template <typename Base, typename Kind = kind_of_t<Base>>
 struct section_proxy;
 
 namespace {
+
+// non-trivial helper function to detect when an CkEntryOptions* is
+// given as the last argument of a send-call and move it to the
+// appropriate position, based on: https://stackoverflow.com/q/31255890/
+template <class Base, auto Entry,
+          template <class, auto, class, class...> class Sender, class First,
+          std::size_t... I0s, std::size_t... I1s, class... Ts>
+void __send_with_options(
+    const First &first,
+    std::index_sequence<I0s...>,  // first args
+    std::index_sequence<I1s...>,  // last args
+    std::tuple<Ts..., CkEntryOptions *&&> args /* all args */) {
+  Sender<Base, Entry, First, Ts...>()(std::get<I0s>(std::move(args))..., first,
+                                      std::get<I1s>(std::move(args))...);
+}
+
+template <class Base, auto Entry,
+          template <class, auto, class, class...> class Sender, class First,
+          class... Ts>
+void __send(const First &first, Ts &&...ts) {
+  using last_t = get_last_t<Ts...>;
+  if constexpr (std::is_same_v<CkEntryOptions *, std::decay_t<last_t>>) {
+    __send_with_options<Base, Entry, Sender>(
+        first, std::index_sequence<sizeof...(ts) - 1>{},  // put last first
+        std::make_index_sequence<sizeof...(ts) - 1>{},    // put first last
+        std::forward_as_tuple(std::forward<Ts>(ts)...));  // bundled args
+  } else {
+    Sender<Base, Entry, First, Ts...>()(nullptr, first,
+                                        std::forward<Ts>(ts)...);
+  }
+}
+
 template <typename... Left, typename... Right>
 CkSectionInfo &__info(Left &&..., CkSectionInfo &info, Right &&...) {
   return info;
@@ -76,20 +109,26 @@ auto __index(const Proxy *proxy, const typename Proxy::Index &index) {
 }
 
 template <typename Base, auto Entry, typename Send, typename... Args>
-void __array_send(const Send &send, CkEntryOptions *opts, Args &&...args) {
-  auto *msg = ck::pack(opts, std::forward<Args>(args)...);
-  auto ep = index<Base>::template method_index<Entry>();
-  UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
-  ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
-  send((CkArrayMessage *)msg, ep);
-}
+struct array_sender {
+  void operator()(CkEntryOptions *opts, const Send &send,
+                  Args &&...args) const {
+    auto *msg = ck::pack(opts, std::forward<Args>(args)...);
+    auto ep = index<Base>::template method_index<Entry>();
+    UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
+    ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
+    send((CkArrayMessage *)msg, ep);
+  }
+};
 
 template <typename Base, auto Entry, typename Send, typename... Args>
-void __grouplike_send(const Send &send, CkEntryOptions *opts, Args &&...args) {
-  auto *msg = ck::pack(opts, std::forward<Args>(args)...);
-  auto ep = index<Base>::template method_index<Entry>();
-  send((CkArrayMessage *)msg, ep);
-}
+struct grouplike_sender {
+  void operator()(CkEntryOptions *opts, const Send &send,
+                  Args &&...args) const {
+    auto *msg = ck::pack(opts, std::forward<Args>(args)...);
+    auto ep = index<Base>::template method_index<Entry>();
+    send((CkMessage *)msg, ep);
+  }
+};
 }  // namespace
 
 template <typename Base, typename Kind>
@@ -109,15 +148,15 @@ struct section_proxy : public section_proxy_of_t<Kind> {
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
     if constexpr (is_array) {
-      __array_send<Base, Entry>(
+      __send<Base, Entry, array_sender>(
           [&](CkArrayMessage *msg, int ep) {
             const_cast<section_t *>(this)->ckSend(msg, ep);
           },
-          nullptr, std::forward<Args>(args)...);
+          std::forward<Args>(args)...);
     } else {
       constexpr auto &send_fn =
           is_group ? CkSendMsgBranchMulti : CkSendMsgNodeBranchMulti;
-      __grouplike_send<Base, Entry>(
+      __send<Base, Entry, grouplike_sender>(
           [&](CkMessage *msg, int ep) {
             for (auto i = 0; i < this->ckGetNumSections(); i++) {
               auto *copy = (i < (this->ckGetNumSections() - 1))
@@ -127,7 +166,7 @@ struct section_proxy : public section_proxy_of_t<Kind> {
                       this->ckGetNumElements(i), this->ckGetElements(i), 0);
             }
           },
-          nullptr, std::forward<Args>(args)...);
+          std::forward<Args>(args)...);
     }
   }
 
@@ -157,17 +196,17 @@ struct element_proxy : public element_proxy_of_t<Kind> {
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
     if constexpr (is_array) {
-      __array_send<Base, Entry>(
-          [&](CkArrayMessage *msg, int ep) { this->ckSend(msg, ep); }, nullptr,
+      __send<Base, Entry, array_sender>(
+          [&](CkArrayMessage *msg, int ep) { this->ckSend(msg, ep); },
           std::forward<Args>(args)...);
     } else {
       constexpr auto &send_fn =
           is_group ? CkSendMsgBranch : CkSendMsgNodeBranch;
-      __grouplike_send<Base, Entry>(
+      __send<Base, Entry, grouplike_sender>(
           [&](CkMessage *msg, int ep) {
             send_fn(ep, msg, this->ckGetGroupPe(), this->ckGetGroupID(), 0);
           },
-          nullptr, std::forward<Args>(args)...);
+          std::forward<Args>(args)...);
     }
   }
 
@@ -200,17 +239,17 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
     if constexpr (is_array) {
-      __array_send<Base, Entry>(
+      __send<Base, Entry, array_sender>(
           [&](CkArrayMessage *msg, int ep) { this->ckBroadcast(msg, ep); },
-          nullptr, std::forward<Args>(args)...);
+          std::forward<Args>(args)...);
     } else {
       constexpr auto &send_fn =
           is_group ? CkBroadcastMsgBranch : CkBroadcastMsgNodeBranch;
-      __grouplike_send<Base, Entry>(
+      __send<Base, Entry, grouplike_sender>(
           [&](CkMessage *msg, int ep) {
             send_fn(ep, msg, this->ckGetGroupID(), 0);
           },
-          nullptr, std::forward<Args>(args)...);
+          std::forward<Args>(args)...);
     }
   }
 
