@@ -4,14 +4,15 @@
 #include <ck/options.hpp>
 #include <ck/registrar.hpp>
 
-#define CPROXY_MEMBERS                          \
-  using Index = index_of_t<Kind>;               \
-  using local_t = Base;                         \
-  using index_t = index<Base>;                  \
-  using proxy_t = collection_proxy<Base, Kind>; \
-  using element_t = element_proxy<Base, Kind>;  \
-  using section_t = section_proxy<Base, Kind>;  \
-  using array_index_t = Index;
+#define CPROXY_MEMBERS                               \
+  using Index = index_of_t<Kind>;                    \
+  using local_t = Base;                              \
+  using index_t = index<Base>;                       \
+  using proxy_t = collection_proxy<Base, Kind>;      \
+  using element_t = element_proxy<Base, Kind>;       \
+  using section_t = section_proxy<Base, Kind>;       \
+  static constexpr auto is_array = is_array_v<Kind>; \
+  static constexpr auto is_group = std::is_same_v<group, Kind>;
 
 namespace ck {
 
@@ -60,6 +61,20 @@ CkSectionInfo &__info(Left &&..., CkSectionInfo &info, Right &&...) {
   return info;
 }
 
+template <typename Proxy>
+auto __index(const Proxy *proxy, const typename Proxy::Index &index) {
+  using index_t = std::decay_t<decltype(index)>;
+  using element_t = typename Proxy::element_t;
+
+  if constexpr (Proxy::is_array) {
+    return element_t(proxy->ckGetArrayID(), index_view<index_t>::encode(index),
+                     proxy->ckDelegatedTo(), proxy->ckDelegatedPtr());
+  } else {
+    return element_t(proxy->ckGetGroupID(), index, proxy->ckDelegatedTo(),
+                     proxy->ckDelegatedPtr());
+  }
+}
+
 template <typename Base, auto Entry, typename Send, typename... Args>
 void __array_send(const Send &send, CkEntryOptions *opts, Args &&...args) {
   auto *msg = ck::pack(opts, std::forward<Args>(args)...);
@@ -87,43 +102,46 @@ struct section_proxy : public section_proxy_of_t<Kind> {
   section_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  static section_t create(Args &&...args) {
-    return CkSectionID(std::forward<Args>(args)...);
+  static auto create(Args &&...args) {
+    return section_t(std::forward<Args>(args)...);
   }
 
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
-    if constexpr (std::is_same_v<CProxySection_ArrayElement, parent_t>) {
+    if constexpr (is_array) {
       __array_send<Base, Entry>(
           [&](CkArrayMessage *msg, int ep) {
             const_cast<section_t *>(this)->ckSend(msg, ep);
           },
           nullptr, std::forward<Args>(args)...);
     } else {
-      static_assert(always_false<Args...>, "not implemented");
+      constexpr auto &send_fn =
+          is_group ? CkSendMsgBranchMulti : CkSendMsgNodeBranchMulti;
+      __grouplike_send<Base, Entry>(
+          [&](CkMessage *msg, int ep) {
+            for (auto i = 0; i < this->ckGetNumSections(); i++) {
+              auto *copy = (i < (this->ckGetNumSections() - 1))
+                               ? CkCopyMsg((void **)&msg)
+                               : msg;
+              send_fn(ep, copy, this->ckGetGroupIDn(i),
+                      this->ckGetNumElements(i), this->ckGetElements(i), 0);
+            }
+          },
+          nullptr, std::forward<Args>(args)...);
     }
   }
 
   element_t operator[](const Index &index) const {
-    if constexpr (std::is_same_v<CProxySection_ArrayElement, parent_t>) {
-      return element_t(this->ckGetArrayID(), index_view<Index>::encode(index),
-                       this->ckDelegatedTo(), this->ckDelegatedPtr());
-    } else {
-      return element_t(this->ckGetGroupID(), index, this->ckDelegatedTo(),
-                       this->ckDelegatedPtr());
-    }
+    return __index(this, index);
   }
 
   template <typename... Args>
-  static void contribute(Args &&...args) {
+  static std::enable_if_t<get_first_v<is_array, Args...>> contribute(
+      Args &&...args) {
     auto &sid = __info(args...);
-    if constexpr (std::is_same_v<CProxySection_ArrayElement, parent_t>) {
-      auto *arr = CProxy_CkArray(sid.get_aid()).ckLocalBranch();
-      auto *grp = CProxy_CkMulticastMgr(arr->getmCastMgr()).ckLocalBranch();
-      grp->contribute(std::forward<Args>(args)...);
-    } else {
-      static_assert(always_false<Args...>, "not implemented");
-    }
+    auto *arr = CProxy_CkArray(sid.get_aid()).ckLocalBranch();
+    auto *grp = CProxy_CkMulticastMgr(arr->getmCastMgr()).ckLocalBranch();
+    grp->contribute(std::forward<Args>(args)...);
   }
 };
 
@@ -138,32 +156,34 @@ struct element_proxy : public element_proxy_of_t<Kind> {
 
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
-    if constexpr (std::is_same_v<parent_t, CProxyElement_ArrayElement>) {
+    if constexpr (is_array) {
       __array_send<Base, Entry>(
           [&](CkArrayMessage *msg, int ep) { this->ckSend(msg, ep); }, nullptr,
           std::forward<Args>(args)...);
     } else {
-      static_assert(always_false<Args...>, "not implemented");
+      constexpr auto &send_fn =
+          is_group ? CkSendMsgBranch : CkSendMsgNodeBranch;
+      __grouplike_send<Base, Entry>(
+          [&](CkMessage *msg, int ep) {
+            send_fn(ep, msg, this->ckGetGroupPe(), this->ckGetGroupID(), 0);
+          },
+          nullptr, std::forward<Args>(args)...);
     }
   }
 
   template <typename... Args>
-  void insert(Args &&...args) const {
-    if constexpr (std::is_same_v<parent_t, CProxy_ArrayElement>) {
-      auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
-      auto ctor = index<Base>::template constructor_index<Args...>();
-      UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
-      const_cast<element_t *>(this)->ckInsert((CkArrayMessage *)msg, ctor,
-                                              CK_PE_ANY);
-    } else {
-      static_assert(always_false<Args...>, "not implemented");
-    }
+  std::enable_if_t<get_first_v<is_array, Args...>> insert(
+      Args &&...args) const {
+    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
+    auto ctor = index<Base>::template constructor_index<Args...>();
+    UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
+    const_cast<element_t *>(this)->ckInsert((CkArrayMessage *)msg, ctor,
+                                            CK_PE_ANY);
   }
 };
 
 template <typename Base, typename Kind>
 struct collection_proxy : public collection_proxy_of_t<Kind> {
-  static constexpr auto is_array = is_array_v<Kind>;
   using parent_t = collection_proxy_of_t<Kind>;
 
   CPROXY_MEMBERS;
@@ -184,26 +204,18 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
           [&](CkArrayMessage *msg, int ep) { this->ckBroadcast(msg, ep); },
           nullptr, std::forward<Args>(args)...);
     } else {
-      constexpr auto is_group = std::is_same_v<group, Kind>;
-      constexpr auto &send =
+      constexpr auto &send_fn =
           is_group ? CkBroadcastMsgBranch : CkBroadcastMsgNodeBranch;
       __grouplike_send<Base, Entry>(
           [&](CkMessage *msg, int ep) {
-            send(ep, msg, this->ckGetGroupID(), 0);
+            send_fn(ep, msg, this->ckGetGroupID(), 0);
           },
           nullptr, std::forward<Args>(args)...);
     }
   }
 
-  // DRY violation with section proxy
   element_t operator[](const Index &index) const {
-    if constexpr (is_array) {
-      return element_t(this->ckGetArrayID(), index_view<Index>::encode(index),
-                       this->ckDelegatedTo(), this->ckDelegatedPtr());
-    } else {
-      return element_t(this->ckGetGroupID(), index, this->ckDelegatedTo(),
-                       this->ckDelegatedPtr());
-    }
+    return __index(this, index);
   }
 
   auto ckLocalBranch(void) const {
