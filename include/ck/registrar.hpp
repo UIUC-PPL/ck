@@ -79,46 +79,6 @@ struct index {
 template <typename Base>
 int index<Base>::__idx;
 
-namespace {
-template <typename Base, typename... Args>
-std::tuple<Args...> __arguments(void (Base::*)(Args...));
-
-template <typename Message>
-int __message_idx(void) {
-  return Message::__idx;
-}
-}  // namespace
-
-template <typename... Args>
-struct method_attributes {
-  static constexpr auto is_message = is_message_v<std::decay_t<Args>...>;
-  static int __idx;
-};
-
-template <typename... Args>
-int method_attributes<Args...>::__idx = ([](void) {
-  if constexpr (is_message) {
-    return __message_idx<std::remove_pointer_t<Args>...>();
-  } else {
-    // TODO ( need to make this a wildcard to accept any message )
-    return CkMarshallMsg::__idx;
-  }
-})();
-
-template <typename T>
-struct attributes_of;
-
-template <typename... Ts>
-struct attributes_of<std::tuple<Ts...>> {
-  using type = method_attributes<Ts...>;
-};
-
-template <auto Fn>
-using method_arguments_t = decltype(__arguments(Fn));
-
-template <auto Fn>
-using attributes_of_t = typename attributes_of<method_arguments_t<Fn>>::type;
-
 template <class Base, auto Entry>
 struct method_registrar {
   static int __idx;
@@ -178,9 +138,8 @@ struct method_registrar {
   static int __register(void) {
     // force the compiler to initialize this variable
     __dummy(__idx);
-    using attributes_t = attributes_of_t<Entry>;
     return CkRegisterEp(__PRETTY_FUNCTION__, __choose_call(),
-                        attributes_t::__idx, index<Base>::__idx,
+                        message_index_v<Entry>, index<Base>::__idx,
                         registration_flags<Entry>);
   }
 };
@@ -206,11 +165,11 @@ struct constructor_registrar {
   static int __register(void) {
     // force the compiler to initialize this variable
     __dummy(__idx);
-    using attributes_t = method_attributes<Args...>;
-    constexpr auto flags = attributes_t::is_message ? 0 : CK_EP_NOKEEP;
+    constexpr auto is_message = is_message_v<Args...>;
+    constexpr auto flags = is_message ? 0 : CK_EP_NOKEEP;
     return CkRegisterEp(__PRETTY_FUNCTION__,
                         &constructor_registrar<Base, Args...>::__call,
-                        attributes_t::__idx, index<Base>::__idx, flags);
+                        message_index_of_v<Args...>, index<Base>::__idx, flags);
   }
 };
 

@@ -40,9 +40,6 @@ CK_ENTRY_ATTRIBUTE_DECLARE(threaded);
 template <auto Entry>
 struct is_nokeep;
 
-template <typename Class, typename... Args>
-using member_fn_t = void (Class::*)(Args...);
-
 template <typename Class, typename... Args, member_fn_t<Class, Args...> Entry>
 struct is_nokeep<Entry> {
   static constexpr auto value = !is_message_v<std::decay_t<Args>...>;

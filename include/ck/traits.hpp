@@ -4,10 +4,12 @@
 #include <ck/common.hpp>
 
 namespace ck {
+template <typename Class, typename... Args>
+using member_fn_t = void (Class::*)(Args...);
+
 namespace {
 template <typename... Ts>
-constexpr std::tuple<std::decay_t<Ts>...> decay_types(
-    std::tuple<Ts...> const &);
+constexpr std::tuple<std::decay_t<Ts>...> decay_types(std::tuple<Ts...> const&);
 }
 
 template <class... T>
@@ -19,7 +21,7 @@ using decay_tuple_t = decltype(decay_types(std::declval<T>()));
 
 namespace {
 template <template <typename...> class Base, typename... Ts>
-std::true_type is_base_of_template_impl(const Base<Ts...> *);
+std::true_type is_base_of_template_impl(const Base<Ts...>*);
 
 template <template <typename...> class Base>
 std::false_type is_base_of_template_impl(...);
@@ -27,7 +29,7 @@ std::false_type is_base_of_template_impl(...);
 
 template <template <typename...> class Base, typename Derived>
 using is_base_of_template =
-    decltype(is_base_of_template_impl<Base>(std::declval<Derived *>()));
+    decltype(is_base_of_template_impl<Base>(std::declval<Derived*>()));
 
 // determine whether a class is derived from a templated base class
 template <template <typename...> class Base, typename Derived>
@@ -47,6 +49,40 @@ constexpr bool is_message_impl(void) {
 
 template <typename... Ts>
 constexpr auto is_message_v = is_message_impl<Ts...>();
+
+template <typename T, typename Enable = void>
+struct message_index_of {
+  // TODO ( need to make this a wildcard to accept any message )
+  static constexpr auto& value = CkMarshallMsg::__idx;
+};
+
+template <typename Message, typename... Ts>
+struct message_index_of<std::tuple<Message*, Ts...>,
+                        std::enable_if_t<is_message_v<Message>>> {
+  static constexpr auto& value = std::remove_cv_t<Message>::__idx;
+};
+
+template <typename... Ts>
+constexpr auto& message_index_of_v = message_index_of<std::tuple<Ts...>>::value;
+
+template <auto Entry>
+struct message_index;
+
+template <typename Class, typename... Args, member_fn_t<Class, Args...> Entry>
+struct message_index<Entry> {
+  static constexpr auto& value = message_index_of_v<Args...>;
+};
+
+template <auto Entry>
+constexpr auto& message_index_v = message_index<Entry>::value;
+
+namespace {
+template <typename Class, typename... Args>
+std::tuple<Args...> __arguments(member_fn_t<Class, Args...>);
+}  // namespace
+
+template <auto Fn>
+using method_arguments_t = decltype(__arguments(Fn));
 
 template <typename T>
 using storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
