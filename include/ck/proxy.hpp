@@ -325,8 +325,7 @@ template <typename Base, typename Index, typename... Args>
 array_proxy<Base, Index> __create_array(const constructor_options<Base> *opts,
                                         Args &&...args) {
   // pack the arguments into a message (with the entry options)
-  auto *msg = ck::pack(const_cast<CkEntryOptions *>(&(opts->entry)),
-                       std::forward<Args>(args)...);
+  auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
   // retrieve the constructor's index
   auto ctor = index<Base>::template constructor_index<std::decay_t<Args>...>();
   // set the message type
@@ -353,39 +352,36 @@ collection_proxy<Base, Kind> __create_grouplike(CkEntryOptions *opts,
 }
 }  // namespace
 
-// array creator with end of range given
-template <typename Base, typename Index, typename... Ts>
-struct creator<array_proxy<Base, Index>, Index, Ts...> {
-  template <typename... Args>
-  array_proxy<Base, Index> operator()(const Index &end, Args &&...args) const {
-    constructor_options<Base> opts(end);
-    return __create_array<Base, Index>(&opts,
-                                       std::forward<decltype(args)>(args)...);
-  }
-};
-
 // array creator with options given
 template <typename Base, typename Index, typename... Ts>
-struct creator<array_proxy<Base, Index>, constructor_options<Base>, Ts...> {
+struct creator<array_proxy<Base, Index>, Ts...> {
+  using options_t = constructor_options<Base>;
+
+ private:
+  template <std::size_t... I0s, std::size_t... I1s, class... Args>
+  static CkArrayID __create_with_options(std::index_sequence<I0s...>,
+                                         std::index_sequence<I1s...>,
+                                         std::tuple<Args...> args) {
+    options_t opts(std::get<I0s>(std::move(args))...);
+    return __create_array<Base, Index>(&opts,
+                                       std::get<I1s>(std::move(args))...);
+  }
+
+ public:
   template <typename... Args>
-  array_proxy<Base, Index> operator()(const constructor_options<Base> &opts,
-                                      Args &&...args) const {
+  array_proxy<Base, Index> operator()(Args &&...args) const {
     if constexpr ((sizeof...(Args) == 0) &&
                   !std::is_default_constructible_v<Base>) {
-      auto *msg = CkAllocSysMsg(&(opts.entry));
-      return CkCreateArray((CkArrayMessage *)msg, 0, opts.array);
+      CkArrayOptions opts;
+      return CProxy_ArrayBase::ckCreateEmptyArray(opts);
     } else {
-      return __create_array<Base, Index>(&opts, std::forward<Args>(args)...);
+      using last_t = get_last_t<Ts...>;
+      static_assert(std::is_constructible_v<options_t, last_t>);
+      return __create_with_options(
+          std::index_sequence<sizeof...(Args) - 1>{},       // put last first
+          std::make_index_sequence<sizeof...(Args) - 1>{},  // put first last
+          std::forward_as_tuple(std::forward<Args>(args)...));
     }
-  }
-};
-
-// array creator with nothing given
-template <typename Base, typename Index>
-struct creator<array_proxy<Base, Index>> {
-  array_proxy<Base, Index> operator()(void) const {
-    CkArrayOptions opts;
-    return CProxy_ArrayBase::ckCreateEmptyArray(opts);
   }
 };
 

@@ -4,15 +4,56 @@
 #include <ck/traits.hpp>
 
 namespace ck {
+
+template <typename T>
+struct array_index_of {
+  using type = CkArrayIndex;
+};
+
+template <>
+struct array_index_of<CkIndex1D> {
+  using type = CkArrayIndex1D;
+};
+
+template <>
+struct array_index_of<CkIndex2D> {
+  using type = CkArrayIndex2D;
+};
+
+template <>
+struct array_index_of<CkIndex3D> {
+  using type = CkArrayIndex3D;
+};
+
+template <>
+struct array_index_of<CkIndex4D> {
+  using type = CkArrayIndex4D;
+};
+
+template <>
+struct array_index_of<CkIndex5D> {
+  using type = CkArrayIndex5D;
+};
+
+template <>
+struct array_index_of<CkIndex6D> {
+  using type = CkArrayIndex6D;
+};
+
+template <>
+struct array_index_of<CkIndexMax> {
+  using type = CkArrayIndexMax;
+};
+
+template <typename T>
+using array_index_of_t = typename array_index_of<T>::type;
+
 template <typename T, typename Enable = void>
 struct index_view;
 
 template <typename T>
 constexpr bool is_builtin_index_v =
-    std::is_same_v<T, CkIndex1D> || std::is_same_v<T, CkIndex2D> ||
-    std::is_same_v<T, CkIndex3D> || std::is_same_v<T, CkIndex4D> ||
-    std::is_same_v<T, CkIndex5D> || std::is_same_v<T, CkIndex6D> ||
-    std::is_same_v<T, CkIndexMax>;
+    !std::is_same_v<CkArrayIndex, array_index_of_t<T>>;
 
 namespace {
 template <typename T>
@@ -52,16 +93,11 @@ struct index_view<T, std::enable_if_t<std::is_base_of_v<CkArrayIndex, T>>> {
 
 template <typename T>
 struct index_view<T, std::enable_if_t<is_builtin_index_v<T>>> {
+  using array_index_t = array_index_of_t<T>;
+
   constexpr static auto dimensionality = __dimensionality<T>();
 
-  // TODO ( implement type-mapping from T -> CkArrayIndex(_)D )
-  static CkArrayIndex encode(const T& index) {
-    if constexpr (std::is_same_v<T, CkIndex1D>) {
-      return CkArrayIndex1D(index);
-    } else {
-      static_assert(always_false<T>, "not implemented");
-    }
-  }
+  static array_index_t encode(const T& index) { return array_index_t(index); }
 
   static const T& decode(const CkArrayIndex& index) {
     return *((const T*)index.data());
