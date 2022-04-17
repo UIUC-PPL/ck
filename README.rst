@@ -4,9 +4,10 @@ Charm-Kernel
 An early-stage attempt to port the TMP-based chare/entry method registration scheme of `CharmLite <https://github.com/UIUC-PPL/charmlite>`_ (and, to an extent, `VT <https://github.com/DARMA-tasking/vt>`_) to Charm++.
 
 Other links:
-- `Project Proposal+Status Document. <
-https://docs.google.com/document/d/1wlwCiCTgDlMPrD47PAcg5M_f42R4o37ykFi8IzUpDvE/edit?usp=sharing>`_
-- `Project Feedback Collection Poll. <https://forms.gle/XLwDVLuJ8skbWsL48>`_
+
+* `Project Proposal+Status Document. <https://docs.google.com/document/d/1wlwCiCTgDlMPrD47PAcg5M_f42R4o37ykFi8IzUpDvE/edit?usp=sharing>`_
+
+* `Project Feedback Collection Poll. <https://forms.gle/XLwDVLuJ8skbWsL48>`_
 
 Chares
 ======
