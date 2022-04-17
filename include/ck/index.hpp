@@ -55,36 +55,43 @@ template <typename T>
 constexpr bool is_builtin_index_v =
     !std::is_same_v<CkArrayIndex, array_index_of_t<T>>;
 
-namespace {
-template <typename T>
-constexpr int __dimensionality(void) {
-  if constexpr (std::is_same_v<T, CkArrayIndex1D> ||
-                std::is_same_v<T, CkIndex1D>) {
-    return 1;
-  } else if constexpr (std::is_same_v<T, CkArrayIndex2D> ||
-                       std::is_same_v<T, CkIndex2D>) {
-    return 2;
-  } else if constexpr (std::is_same_v<T, CkArrayIndex3D> ||
-                       std::is_same_v<T, CkIndex3D>) {
-    return 3;
-  } else if constexpr (std::is_same_v<T, CkArrayIndex4D> ||
-                       std::is_same_v<T, CkIndex4D>) {
-    return 4;
-  } else if constexpr (std::is_same_v<T, CkArrayIndex5D> ||
-                       std::is_same_v<T, CkIndex5D>) {
-    return 5;
-  } else if constexpr (std::is_same_v<T, CkArrayIndex6D> ||
-                       std::is_same_v<T, CkIndex6D>) {
-    return 6;
-  } else {
-    return 0;
+template <typename T, typename Enable = void>
+struct dimensionality_of {
+ private:
+  static constexpr int __value(void) {
+    if constexpr (std::is_same_v<T, CkArrayIndex1D> ||
+                  std::is_same_v<T, CkIndex1D>) {
+      return 1;
+    } else if constexpr (std::is_same_v<T, CkArrayIndex2D> ||
+                         std::is_same_v<T, CkIndex2D>) {
+      return 2;
+    } else if constexpr (std::is_same_v<T, CkArrayIndex3D> ||
+                         std::is_same_v<T, CkIndex3D>) {
+      return 3;
+    } else if constexpr (std::is_same_v<T, CkArrayIndex4D> ||
+                         std::is_same_v<T, CkIndex4D>) {
+      return 4;
+    } else if constexpr (std::is_same_v<T, CkArrayIndex5D> ||
+                         std::is_same_v<T, CkIndex5D>) {
+      return 5;
+    } else if constexpr (std::is_same_v<T, CkArrayIndex6D> ||
+                         std::is_same_v<T, CkIndex6D>) {
+      return 6;
+    } else {
+      return -1;
+    }
   }
-}
-}  // namespace
+
+ public:
+  static constexpr auto value = __value();
+};
+
+template <typename T>
+constexpr auto dimensionality_of_v = dimensionality_of<T>::value;
 
 template <typename T>
 struct index_view<T, std::enable_if_t<std::is_base_of_v<CkArrayIndex, T>>> {
-  constexpr static auto dimensionality = __dimensionality<T>();
+  constexpr static auto dimensionality = dimensionality_of_v<T>;
 
   static const T& encode(const T& index) { return index; }
 
@@ -95,7 +102,7 @@ template <typename T>
 struct index_view<T, std::enable_if_t<is_builtin_index_v<T>>> {
   using array_index_t = array_index_of_t<T>;
 
-  constexpr static auto dimensionality = __dimensionality<T>();
+  constexpr static auto dimensionality = dimensionality_of_v<T>;
 
   static array_index_t encode(const T& index) { return array_index_t(index); }
 
