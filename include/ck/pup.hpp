@@ -8,9 +8,6 @@ namespace ck {
 template <typename T, typename Enable = void>
 struct packer;
 
-template <typename T, typename Enable = void>
-struct unpacker;
-
 template <typename T>
 struct packer<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
   CkMessage* operator()(CkEntryOptions* opts, T* t) const {
@@ -31,25 +28,44 @@ struct packer<std::tuple<Ts...>, std::enable_if_t<!is_message_v<Ts...>>> {
   }
 };
 
+template <typename T, typename Enable = void>
+struct unpacker {
+ private:
+  PUP::detail::TemporaryObjectHolder<T> holder_;
+
+ public:
+  unpacker(void* msg) {
+    PUP::fromMem p(CkGetMsgBuffer(msg));
+    p | this->value();
+  }
+
+  T& value(void) { return (this->holder_).t; }
+};
+
 template <typename T>
 struct unpacker<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
+ private:
   std::tuple<T*> msg_;
 
-  unpacker(void* msg) : msg_((T*)msg) {}
+ public:
+  unpacker(void* msg) : msg_(reinterpret_cast<T*>(msg)) {}
 
   std::tuple<T*>& value(void) { return this->msg_; }
 };
 
-template <typename... Args>
-struct unpacker<std::tuple<Args...>, std::enable_if_t<!is_message_v<Args...>>> {
-  PUP::detail::TemporaryObjectHolder<std::tuple<Args...>> tmp_;
+template <>
+struct unpacker<main_arguments_t> {
+ private:
+  main_arguments_t args_;
 
+ public:
   unpacker(void* msg) {
-    PUP::fromMem p(CkGetMsgBuffer(msg));
-    p | tmp_.t;
+    auto* amsg = reinterpret_cast<CkArgMsg*>(msg);
+    CkEnforce(UsrToEnv(amsg)->getMsgIdx() == CMessage_CkArgMsg::__idx);
+    this->args_ = std::forward_as_tuple(amsg->argc, amsg->argv);
   }
 
-  std::tuple<Args...>& value(void) { return tmp_.t; }
+  main_arguments_t& value(void) { return this->args_; }
 };
 
 template <typename... Args>

@@ -7,15 +7,21 @@
 
 namespace ck {
 template <typename Base>
-int chare_registrar<Base>::__register(void) {
-  register_fn_t fn;
-  if constexpr (is_main_chare_v<Base>) {
-    fn = &(ck::chare<Base, main_chare>::__register);
+int main_chare_constructor(void) {
+  if constexpr (std::is_constructible_v<Base, CkArgMsg*>) {
+    return ck::index<Base>::template constructor_index<CkArgMsg*>();
+  } else if constexpr (std::is_constructible_v<Base, int, char**>) {
+    return ck::index<Base>::template constructor_index<int, char**>();
   } else {
-    fn = &(ck::index<Base>::__register);
+    return ck::index<Base>::template constructor_index<>();
   }
+}
+
+template <typename Base>
+int chare_registrar<Base>::__register(void) {
   auto& registry = CK_ACCESS_SINGLETON(chare_registry);
   auto ep = (int)registry.size();
+  auto fn = &(ck::index<Base>::__register);
   registry.emplace_back(fn);
   return ep;
 }

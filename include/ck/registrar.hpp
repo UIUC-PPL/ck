@@ -13,6 +13,9 @@ using index_fn_t = int (*)(void);
 
 CK_GENERATE_SINGLETON(std::vector<register_fn_t>, chare_registry);
 
+template <typename Base>
+int main_chare_constructor(void);
+
 template <class Base>
 struct chare_registrar {
   static int __idx;
@@ -48,6 +51,8 @@ struct index {
       using collection_index_t = index_of_t<collection_kind_t>;
       constexpr auto ndims = index_view<collection_index_t>::dimensionality;
       CkRegisterArrayDimensions(__idx, ndims);
+    } else if constexpr (std::is_same_v<main_chare, collection_kind_t>) {
+      CkRegisterMainChare(__idx, main_chare_constructor<Base>());
     }
 
     for (auto& entry : __entries()) {

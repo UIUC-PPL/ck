@@ -47,6 +47,8 @@ constexpr bool is_message_impl(void) {
 }
 }  // namespace
 
+using main_arguments_t = std::tuple<int, char**>;
+
 template <typename... Ts>
 constexpr auto is_message_v = is_message_impl<Ts...>();
 
@@ -56,9 +58,17 @@ struct message_index_of {
   static constexpr auto& value = CkMarshallMsg::__idx;
 };
 
+template <typename T>
+struct message_index_of<
+    T, std::enable_if_t<std::is_same_v<T, main_arguments_t> ||
+                        std::is_same_v<T, std::tuple<CkArgMsg*>>>> {
+  static constexpr auto& value = CMessage_CkArgMsg::__idx;
+};
+
 template <typename Message, typename... Ts>
 struct message_index_of<std::tuple<Message*, Ts...>,
-                        std::enable_if_t<is_message_v<Message>>> {
+                        std::enable_if_t<is_message_v<Message> &&
+                                         !std::is_same_v<Message, CkArgMsg>>> {
   static constexpr auto& value = std::remove_cv_t<Message>::__idx;
 };
 
