@@ -1,7 +1,6 @@
 #ifndef CK_READONLY_HPP
 #define CK_READONLY_HPP
 
-#include <ck/singleton.hpp>
 #include <ck/traits.hpp>
 
 #define CK_READONLY_NAME(name) __##name##__readonly
@@ -18,10 +17,6 @@
 #define CK_EXTERN_READONLY(type, name) extern type& name;
 
 namespace ck {
-
-using readonly_fn_t = void (*)(void);
-
-CK_GENERATE_SINGLETON(std::vector<readonly_fn_t>, readonly_registry);
 
 template <typename T>
 struct readonly {
@@ -61,7 +56,7 @@ struct readonly {
 
 template <typename T>
 int readonly<T>::__idx = ([](void) {
-  auto& reg = CK_ACCESS_SINGLETON(readonly_registry);
+  auto& reg = registry::readonlies();
   auto idx = (int)reg.size();
   reg.emplace_back(&(readonly<T>::__register));
   return idx;

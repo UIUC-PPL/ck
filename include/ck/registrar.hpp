@@ -5,13 +5,9 @@
 #include <ck/index.hpp>
 #include <ck/kind.hpp>
 #include <ck/pup.hpp>
-#include <ck/singleton.hpp>
 
 namespace ck {
-using register_fn_t = void (*)(void);
 using index_fn_t = int (*)(void);
-
-CK_GENERATE_SINGLETON(std::vector<register_fn_t>, chare_registry);
 
 template <typename Base>
 int main_chare_constructor(void);

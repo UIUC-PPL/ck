@@ -19,20 +19,20 @@ int main_chare_constructor(void) {
 
 template <typename Base>
 int chare_registrar<Base>::__register(void) {
-  auto& registry = CK_ACCESS_SINGLETON(chare_registry);
-  auto ep = (int)registry.size();
+  auto& reg = registry::chares();
+  auto ep = (int)reg.size();
   auto fn = &(ck::index<Base>::__register);
-  registry.emplace_back(fn);
+  reg.emplace_back(fn);
   return ep;
 }
 
 inline void __register(void) {
-  auto& chares = CK_ACCESS_SINGLETON(chare_registry);
+  auto& chares = registry::chares();
   for (auto& chare : chares) {
     (*chare)();
   }
 
-  auto& readonlies = CK_ACCESS_SINGLETON(readonly_registry);
+  auto& readonlies = registry::readonlies();
   for (auto& readonly : readonlies) {
     (*readonly)();
   }
