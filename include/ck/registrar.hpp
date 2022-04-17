@@ -12,9 +12,6 @@ using index_fn_t = int (*)(void);
 template <typename Base>
 int main_chare_constructor(void);
 
-template <typename Base>
-int migration_constructor(void);
-
 template <class Base>
 struct chare_registrar {
   static int __idx;
@@ -54,10 +51,7 @@ struct index {
       CkRegisterMainChare(__idx, main_chare_constructor<Base>());
     }
 
-    auto ctor = migration_constructor<Base>();
-    if (ctor != -1) {
-      CkRegisterMigCtor(__idx, ctor);
-    }
+    CkRegisterMigCtor(__idx, constructor_index<CkMigrateMessage*>());
 
     for (auto& entry : __entries()) {
       (*entry)();
@@ -182,10 +176,33 @@ struct constructor_registrar {
   }
 };
 
+template <class Base>
+struct constructor_registrar<Base, CkMigrateMessage*> {
+  static int __idx;
+
+  static void __call(void* msg, void* obj) {
+    call_migration_constructor<Base> caller(obj);
+    caller(reinterpret_cast<CkMigrateMessage*>(msg));
+  }
+
+  static int __register(void) {
+    // force the compiler to initialize this variable
+    __dummy(__idx);
+    return CkRegisterEp(__PRETTY_FUNCTION__,
+                        &constructor_registrar<Base, CkMigrateMessage*>::__call,
+                        0, index<Base>::__idx, 0);
+  }
+};
+
 template <class Base, typename... Args>
 int constructor_registrar<Base, Args...>::__idx =
     index<Base>::template __append<
         &ck::index<Base>::template constructor_index<Args...>>();
+
+template <class Base>
+int constructor_registrar<Base, CkMigrateMessage*>::__idx =
+    index<Base>::template __append<
+        &ck::index<Base>::template constructor_index<CkMigrateMessage*>>();
 }  // namespace ck
 
 #endif
