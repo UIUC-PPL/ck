@@ -20,8 +20,7 @@ struct packer {
 template <typename T>
 struct packer<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
   CkMessage* operator()(CkEntryOptions* opts, T* t) const {
-    // TODO ( copy entry options to message if non-null )
-    return static_cast<CkMessage*>(t);
+    return stamp_message(static_cast<CkMessage*>(t), opts);
   }
 };
 
