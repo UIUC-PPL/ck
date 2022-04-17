@@ -5,9 +5,9 @@
 
 namespace ck {
 
-template <class Base, class Kind>
-struct chare : public element_of_t<Kind>, public CBase {
-  using parent_t = element_of_t<Kind>;
+template <class Base, class Kind, class Parent = parent_of_t<Kind>>
+struct chare : public Parent, public CBase {
+  using parent_t = Parent;
   using collection_index_t = index_of_t<Kind>;
   using CProxy_Derived = collection_proxy<Base, Kind>;
 
@@ -36,8 +36,9 @@ struct chare : public element_of_t<Kind>, public CBase {
   }
 };
 
-template <typename Base>
-struct chare<Base, singleton_chare> : public Chare, public CBase {
+template <class Base, class Kind>
+struct chare<Base, Kind, Chare> : public Chare, public CBase {
+  using parent_t = Chare;
   using CProxy_Derived = chare_proxy<Base>;
 
   CBASE_MEMBERS;
@@ -53,42 +54,20 @@ struct chare<Base, singleton_chare> : public Chare, public CBase {
   }
 };
 
-template <typename Base>
-struct chare<Base, main_chare> : public Chare, public CBase {
-  using CProxy_Derived = chare_proxy<Base>;
-
-  CBASE_MEMBERS;
-
-  template <typename... Args>
-  chare(Args&&... args) : Chare(std::forward<Args>(args)...), thisProxy(this) {
-    // force the compiler to initialize this variable
-    __dummy(chare_registrar<Base>::__idx);
-  }
-
-  void parent_pup(PUP::er& p) {
-    recursive_pup<Base>(static_cast<Base*>(this), p);
-  }
-};
+template <class Base, class Kind, class Parent>
+void chare<Base, Kind, Parent>::virtual_pup(PUP::er& p) {
+  recursive_pup<Base>(static_cast<Base*>(this), p);
+}
 
 template <class Base, class Kind>
-void chare<Base, Kind>::virtual_pup(PUP::er& p) {
-  recursive_pup<Base>(static_cast<Base*>(this), p);
-}
-
-template <class Base>
-void chare<Base, singleton_chare>::virtual_pup(PUP::er& p) {
-  recursive_pup<Base>(static_cast<Base*>(this), p);
-}
-
-template <class Base>
-void chare<Base, main_chare>::virtual_pup(PUP::er& p) {
+void chare<Base, Kind, Chare>::virtual_pup(PUP::er& p) {
   recursive_pup<Base>(static_cast<Base*>(this), p);
 }
 
 template <typename T>
 struct kind_of {
-  template <class Base, class Kind>
-  static Kind kind_(chare<Base, Kind>&);
+  template <class Base, class Kind, class Parent>
+  static Kind kind_(chare<Base, Kind, Parent>&);
 
   using type = decltype(kind_(std::declval<T&>()));
 };

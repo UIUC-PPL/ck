@@ -8,7 +8,7 @@ using kind_t = ChareType;
 
 struct group {
   using index_t = int;
-  using element_t = Group;
+  using parent_t = Group;
   using collection_proxy_t = CProxy_IrrGroup;
   using element_proxy_t = CProxyElement_IrrGroup;
   using section_proxy_t = CProxySection_IrrGroup;
@@ -18,7 +18,7 @@ struct group {
 
 struct nodegroup {
   using index_t = int;
-  using element_t = NodeGroup;
+  using parent_t = NodeGroup;
   using collection_proxy_t = CProxy_NodeGroup;
   using element_proxy_t = CProxyElement_NodeGroup;
   using section_proxy_t = CProxySection_NodeGroup;
@@ -29,7 +29,7 @@ struct nodegroup {
 template <class Index>
 struct array {
   using index_t = Index;
-  using element_t = ArrayElement;
+  using parent_t = ArrayElement;
   using collection_proxy_t = CProxy_ArrayElement;
   using element_proxy_t = CProxyElement_ArrayElement;
   using section_proxy_t = CProxySection_ArrayElement;
@@ -38,6 +38,7 @@ struct array {
 };
 
 struct singleton_chare {
+  using parent_t = Chare;
   using proxy_t = CProxy_Chare;
   static constexpr kind_t kind = TypeChare;
   static constexpr auto& __idx = CkIndex_Chare::__idx;
@@ -57,7 +58,7 @@ template <typename T>
 using index_of_t = typename T::index_t;
 
 template <typename T>
-using element_of_t = typename T::element_t;
+using parent_of_t = typename T::parent_t;
 
 template <typename T>
 using collection_proxy_of_t = typename T::collection_proxy_t;

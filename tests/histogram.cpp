@@ -25,8 +25,8 @@ Main::Main(int argc, char **argv) {
   nBins = atoi(argv[4]);
 
   // Create Histogram chare array
-  histogramProxy = ck::array_proxy<Histogram>::create(
-      nElementsPerChare, maxElementValue, nChares);
+  histogramProxy = ck::array_proxy<Histogram>::create(nElementsPerChare,
+                                                      maxElementValue, nChares);
   // Create HistogramMerger group
   histogramMergerProxy = ck::group_proxy<HistogramMerger>::create(nBins);
   // set readonly
