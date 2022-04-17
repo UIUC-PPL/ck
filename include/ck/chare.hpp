@@ -16,8 +16,9 @@ struct chare : public Parent, public CBase {
   // duplicated for node/groups but c'est la vie
   collection_index_t thisIndex;
 
+ protected:
   template <typename... Args>
-  chare(Args&&... args)
+  explicit chare(Args&&... args)
       : parent_t(std::forward<Args>(args)...),
         thisProxy(static_cast<parent_t*>(this)) {
     // force the compiler to initialize this variable
@@ -31,8 +32,9 @@ struct chare : public Parent, public CBase {
     }
   }
 
+ public:
   void parent_pup(PUP::er& p) {
-    recursive_pup<Base>(static_cast<Base*>(this), p);
+    recursive_pup<parent_t>(static_cast<parent_t*>(this), p);
   }
 };
 
@@ -44,13 +46,14 @@ struct chare<Base, Kind, Chare> : public Chare, public CBase {
   CBASE_MEMBERS;
 
   template <typename... Args>
-  chare(Args&&... args) : Chare(std::forward<Args>(args)...), thisProxy(this) {
+  explicit chare(Args&&... args)
+      : Chare(std::forward<Args>(args)...), thisProxy(this) {
     // force the compiler to initialize this variable
     __dummy(chare_registrar<Base>::__idx);
   }
 
   void parent_pup(PUP::er& p) {
-    recursive_pup<Base>(static_cast<Base*>(this), p);
+    recursive_pup<parent_t>(static_cast<parent_t*>(this), p);
   }
 };
 

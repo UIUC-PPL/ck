@@ -12,6 +12,9 @@ using index_fn_t = int (*)(void);
 template <typename Base>
 int main_chare_constructor(void);
 
+template <typename Base>
+int migration_constructor(void);
+
 template <class Base>
 struct chare_registrar {
   static int __idx;
@@ -49,6 +52,11 @@ struct index {
       CkRegisterArrayDimensions(__idx, ndims);
     } else if constexpr (std::is_same_v<main_chare, collection_kind_t>) {
       CkRegisterMainChare(__idx, main_chare_constructor<Base>());
+    }
+
+    auto ctor = migration_constructor<Base>();
+    if (ctor != -1) {
+      CkRegisterMigCtor(__idx, ctor);
     }
 
     for (auto& entry : __entries()) {

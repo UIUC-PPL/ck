@@ -50,6 +50,10 @@ struct chare_proxy : public CProxy_Chare {
   using proxy_t = chare_proxy<Base>;
   using element_t = chare_proxy<Base>;
 
+  chare_proxy(PUP::reconstruct) = delete;
+  chare_proxy(CkMigrateMessage *) = delete;
+
+  // TODO ( make this explicit! )
   template <typename... Args>
   chare_proxy(Args &&...args) : CProxy_Chare(std::forward<Args>(args)...) {}
 
@@ -167,6 +171,10 @@ struct section_proxy : public section_proxy_of_t<Kind> {
 
   CPROXY_MEMBERS;
 
+  section_proxy(PUP::reconstruct) = delete;
+  section_proxy(CkMigrateMessage *) = delete;
+
+  // TODO ( make this explicit! )
   template <typename... Args>
   section_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
 
@@ -220,6 +228,10 @@ struct element_proxy : public element_proxy_of_t<Kind> {
 
   CPROXY_MEMBERS;
 
+  element_proxy(PUP::reconstruct) = delete;
+  element_proxy(CkMigrateMessage *) = delete;
+
+  // TODO ( make this explicit! )
   template <typename... Args>
   element_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
 
@@ -267,6 +279,10 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
 
   CPROXY_MEMBERS;
 
+  collection_proxy(PUP::reconstruct) = delete;
+  collection_proxy(CkMigrateMessage *) = delete;
+
+  // TODO ( make this explicit! )
   template <typename... Args>
   collection_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
 
@@ -302,8 +318,11 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
   auto ckLocalBranch(void) const {
     if constexpr (is_array) {
       return parent_t::ckLocalBranch();
+    } else if constexpr (is_group) {
+      return reinterpret_cast<local_t *>(CkLocalBranch(this->ckGetGroupID()));
     } else {
-      return (local_t *)CkLocalBranch(this->ckGetGroupID());
+      return reinterpret_cast<local_t *>(
+          CkLocalNodeBranch(this->ckGetGroupID()));
     }
   }
 };
@@ -390,6 +409,15 @@ struct creator<group_proxy<Base>, Ts...> {
   group_proxy<Base> operator()(Args &&...args) const {
     return __create_grouplike<Base, group>(nullptr,
                                            std::forward<Args>(args)...);
+  }
+};
+
+template <typename Base, typename... Ts>
+struct creator<nodegroup_proxy<Base>, Ts...> {
+  template <typename... Args>
+  nodegroup_proxy<Base> operator()(Args &&...args) const {
+    return __create_grouplike<Base, nodegroup>(nullptr,
+                                               std::forward<Args>(args)...);
   }
 };
 

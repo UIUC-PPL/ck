@@ -64,6 +64,19 @@ struct unpacker<main_arguments_t> {
   main_arguments_t& value(void) { return this->args_; }
 };
 
+using migration_arguments_t = std::tuple<CkMigrateMessage*>;
+
+template <>
+struct unpacker<migration_arguments_t> {
+ public:
+  unpacker(void*) {}
+
+  migration_arguments_t& value(void) {
+    static migration_arguments_t instance(nullptr);
+    return instance;
+  }
+};
+
 template <typename... Args>
 CkMessage* pack(CkEntryOptions* opts, const Args&... args) {
   return packer<std::tuple<std::decay_t<Args>...>>()(opts, args...);

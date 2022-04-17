@@ -7,6 +7,10 @@ namespace ck {
 
 template <typename... Ts>
 struct callback : public CkCallback {
+  callback(PUP::reconstruct) = delete;
+  callback(CkMigrateMessage*) = delete;
+
+  // TODO ( make this explicit! )
   template <typename... Args>
   callback(Args&&... args) : CkCallback(std::forward<Args>(args)...) {}
 

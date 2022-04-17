@@ -18,6 +18,15 @@ int main_chare_constructor(void) {
 }
 
 template <typename Base>
+int migration_constructor(void) {
+  if constexpr (std::is_constructible_v<Base, CkMigrateMessage*>) {
+    return ck::index<Base>::template constructor_index<CkMigrateMessage*>();
+  } else {
+    return -1;
+  }
+}
+
+template <typename Base>
 int chare_registrar<Base>::__register(void) {
   auto& reg = registry::chares();
   auto ep = (int)reg.size();
