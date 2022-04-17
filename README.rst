@@ -3,6 +3,10 @@ Charm-Kernel
 ============
 An early-stage attempt to port the TMP-based chare/entry method registration scheme of `CharmLite <https://github.com/UIUC-PPL/charmlite>`_ (and, to an extent, `VT <https://github.com/DARMA-tasking/vt>`_) to Charm++.
 
+Other links:
+- `Project Proposal+Status Document. <
+https://docs.google.com/document/d/1wlwCiCTgDlMPrD47PAcg5M_f42R4o37ykFi8IzUpDvE/edit?usp=sharing>`_
+- `Project Feedback Collection Poll. <https://forms.gle/XLwDVLuJ8skbWsL48>`_
 
 Chares
 ======
@@ -18,4 +22,4 @@ All singleton chares (and main chares, by extension) use :code:`ck::chare_proxy`
 
 Callbacks
 =========
-Users can create callbacks to entry methods using the `ck::make_callback` function template. Its template parameter is an entry method, while its argument is the target proxy.
+Users can create callbacks to entry methods using the :code:`ck::make_callback` function template. Its template parameter is an entry method, while its argument is the target proxy.
