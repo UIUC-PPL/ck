@@ -4,7 +4,7 @@ CK_READONLY(int, nTotal);
 
 template <typename T>
 T sum(T&& lhs, T&& rhs) {
-  return lhs + " " + rhs;
+  return lhs + ", " + rhs;
 }
 
 class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
@@ -61,7 +61,7 @@ class main : public ck::chare<main, ck::main_chare> {
   }
 
   void reply(std::string&& result) {
-    CkPrintf("main> everyone said hello: %s\n", result.c_str());
+    CkPrintf("main> everyone said hello: [ %s ]\n", result.c_str());
     CkExit();
   }
 };
