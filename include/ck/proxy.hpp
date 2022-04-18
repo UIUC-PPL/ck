@@ -341,7 +341,8 @@ using nodegroup_proxy = collection_proxy<Base, nodegroup>;
 
 namespace {
 template <typename Base, typename Index, typename... Args>
-array_proxy<Base, Index> __create_array(CkArrayOptions *opts, Args &&...args) {
+array_proxy<Base, Index> __create_array(const CkArrayOptions &opts,
+                                        Args &&...args) {
   // pack the arguments into a message (with the entry options)
   auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
   // retrieve the constructor's index
@@ -349,7 +350,7 @@ array_proxy<Base, Index> __create_array(CkArrayOptions *opts, Args &&...args) {
   // set the message type
   UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
   // create the array
-  return CProxy_ArrayBase::ckCreateArray((CkArrayMessage *)msg, ctor, *opts);
+  return CProxy_ArrayBase::ckCreateArray((CkArrayMessage *)msg, ctor, opts);
 }
 
 template <typename Base, typename Kind, typename... Args>
@@ -380,8 +381,7 @@ struct creator<array_proxy<Base, Index>, Ts...> {
                                          std::index_sequence<I1s...>,
                                          std::tuple<Args...> args) {
     options_t opts(std::get<I0s>(std::move(args))...);
-    return __create_array<Base, Index>(&(opts.array),
-                                       std::get<I1s>(std::move(args))...);
+    return __create_array<Base, Index>(opts, std::get<I1s>(std::move(args))...);
   }
 
  public:

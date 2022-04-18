@@ -10,7 +10,8 @@ template <typename T, typename Enable = void>
 struct constructor_options;
 
 template <typename T>
-struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>> {
+struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>>
+    : public CkArrayOptions {
   using index_t = index_of_t<kind_of_t<T>>;
   using array_index_t = array_index_of_t<index_t>;
 
@@ -21,7 +22,7 @@ struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>> {
     auto fn = [](const auto& idx) { return idx.getDimension(); };
     auto pred = [&](const auto& idx) { return (result == fn(idx)); };
     // get the dimension of the first index
-    ((result = fn(ts), true) || ...);
+    ((result = fn(ts), (void)true) || ...);
     // check that all indices have the same dimension
     if constexpr (sizeof...(ts) >= 1) {
       auto count = (std::size_t(0) + ... + (pred(ts) ? 1 : 0));
@@ -31,21 +32,20 @@ struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>> {
   }
 
  public:
-  CkArrayOptions array;
-
   constructor_options(const index_t& stop)
       : constructor_options(index_view<index_t>::encode(stop)) {}
 
   constructor_options(const array_index_t& stop)
-      : array(CkArrayIndex(__get_dimension(stop), 0), stop,
-              CkArrayIndex(__get_dimension(stop), 1)) {}
+      : CkArrayOptions(CkArrayIndex(__get_dimension(stop), 0), stop,
+                       CkArrayIndex(__get_dimension(stop), 1)) {}
 
   constructor_options(const index_t& start, const index_t& stop)
       : constructor_options(index_view<index_t>::encode(start),
                             index_view<index_t>::encode(stop)) {}
 
   constructor_options(const array_index_t& start, const array_index_t& stop)
-      : array(start, stop, CkArrayIndex(__get_dimension(start, stop), 1)) {}
+      : CkArrayOptions(start, stop,
+                       CkArrayIndex(__get_dimension(start, stop), 1)) {}
 
   constructor_options(const index_t& start, const index_t& stop,
                       const index_t& step)
@@ -55,7 +55,7 @@ struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>> {
 
   constructor_options(const array_index_t& start, const array_index_t& stop,
                       const array_index_t& step)
-      : array(start, stop, step) {}
+      : CkArrayOptions(start, stop, step) {}
 };
 }  // namespace ck
 

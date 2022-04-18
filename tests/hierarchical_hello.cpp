@@ -79,7 +79,7 @@ class hello_array : public ck::chare<hello_array, ck::array<CkIndex1D>> {
 
   virtual void ResumeFromSync(void) override { this->contribute(this->reply_); }
 
-  void pup(PUP::er& p) {
+  void pup(PUP::er& p) override {
     p | this->proxy_;
     p | this->reply_;
     p | this->registered_;
@@ -97,6 +97,7 @@ class main : public ck::chare<main, ck::main_chare> {
     auto group = ck::group_proxy<hello_group>::create(nodegroup);
     auto factor = (argc >= 2) ? atoi(argv[1]) : 4;
     this->nPhases_ = (argc >= 3) ? atoi(argv[2]) : 2;
+    CkEnforceMsg(factor > 0, "overdecomposition factor must be non-zero");
     ck::array_proxy<hello_array>::create(group, factor * CkNumPes());
   }
 
