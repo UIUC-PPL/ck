@@ -19,6 +19,50 @@ struct data_of<Fn> {
   using type = std::decay_t<Data>;
 };
 
+template <typename Iterator>
+CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
+                                  CkReduction::reducerType type) {
+  using value_t = typename std::iterator_traits<Iterator>::value_type;
+  constexpr auto is_bytes = is_bytes_v<value_t>;
+  // determine the size of the result message
+  std::size_t size;
+  if constexpr (is_bytes) {
+    size = (end - begin) * sizeof(value_t);
+  } else {
+    size = std::accumulate(begin, end, 0, [](std::size_t sz, auto& val) {
+      return sz + PUP::size(val);
+    });
+  }
+  // allocate a sufficiently sized message
+  auto* msg = CkReductionMsg::buildNew(size, nullptr, type, nullptr);
+  auto* data = reinterpret_cast<std::byte*>(msg->getData());
+  // then PUP all the accumulated values into it
+  if constexpr (is_bytes) {
+    std::copy(begin, end, (value_t*)data);
+  } else {
+    auto offset = 0;
+    // PUP values individually for non-bytes types
+    for (auto it = begin; it != end; it++) {
+      PUP::toMem p(data + offset);
+      p | *(it);
+      offset += p.size();
+    }
+    // validate that the sizing operation succeeded
+    CkEnforceMsg(size == offset, "pup size mismatch!");
+  }
+  // return the newly formed message
+  return msg;
+}
+
+template <typename Iterator>
+CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
+                                  CkReduction::reducerType type,
+                                  const CkCallback& cb) {
+  auto* msg = pack_contribution(begin, end, type);
+  msg->setCallback(cb);
+  return msg;
+}
+
 template <auto Fn>
 using data_of_t = typename data_of<Fn>::type;
 
@@ -74,23 +118,7 @@ struct reducer_registrar {
               Fn(std::forward<data_t>(lhs[j]), std::forward<data_t>(rhs[j]));
         }
       }
-      // determine the size of the result message
-      auto size = std::accumulate(
-          lhs.begin(), lhs.end(), 0,
-          [](std::size_t sz, auto& val) { return sz + PUP::size(val); });
-      // allocate a sufficiently sized message
-      auto* msg = CkReductionMsg::buildNew(size, nullptr, __type, nullptr);
-      auto* data = reinterpret_cast<std::byte*>(msg->getData());
-      auto offset = 0;
-      // then PUP all the accumulated values into it
-      for (auto& val : lhs) {
-        PUP::toMem p(data + offset);
-        p | val;
-        offset += p.size();
-      }
-      // validate that the PUP operation succeeded
-      CkEnforceMsg(size == offset, "pup size mismatch!");
-      return msg;
+      return pack_contribution(lhs.begin(), lhs.end(), __type);
     }
   }
 

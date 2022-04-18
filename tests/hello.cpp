@@ -31,12 +31,11 @@ class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
     CkPrintf("%d> hello with data %d!\n", thisIndex, data);
 
     if (++nRecvd == 2) {
+      // takes begin..end so we need to pretend to be an array
       auto str = std::to_string(thisIndex);
-      auto size = PUP::size(str);
-      auto* data = alloca(size);
-      PUP::toMemBuf(str, data, size);
-      this->contribute(size, data, ck::reducer<&sum<std::string>>(),
-                       this->reply);
+      auto* msg = ck::pack_contribution(
+          &str, &str + 1, ck::reducer<&sum<std::string>>(), this->reply);
+      this->contribute(msg);
     }
   }
 };
