@@ -30,7 +30,7 @@ CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
     size = (end - begin) * sizeof(value_t);
   } else {
     size = std::accumulate(begin, end, 0, [](std::size_t sz, auto& val) {
-      return sz + PUP::size(val);
+      return sz + PUP::size(const_cast<value_t&>(val));
     });
   }
   // allocate a sufficiently sized message
@@ -44,7 +44,7 @@ CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
     // PUP values individually for non-bytes types
     for (auto it = begin; it != end; it++) {
       PUP::toMem p(data + offset);
-      p | *(it);
+      p | const_cast<value_t&>(*(it));
       offset += p.size();
     }
     // validate that the sizing operation succeeded
@@ -61,6 +61,12 @@ CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
   auto* msg = pack_contribution(begin, end, type);
   msg->setCallback(cb);
   return msg;
+}
+
+template <typename T>
+CkReductionMsg* pack_contribution(const T& value, CkReduction::reducerType type,
+                                  const CkCallback& cb) {
+  return pack_contribution(&value, &value + 1, type, cb);
 }
 
 template <typename T, typename Message = CkReductionMsg>

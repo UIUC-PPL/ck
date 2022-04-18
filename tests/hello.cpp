@@ -33,8 +33,8 @@ class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
     if (++nRecvd == 2) {
       // takes begin..end so we need to pretend to be an array
       auto str = std::to_string(thisIndex);
-      auto* msg = ck::pack_contribution(
-          &str, &str + 1, ck::reducer<&sum<std::string>>(), this->reply);
+      auto* msg = ck::pack_contribution(str, ck::reducer<&sum<std::string>>(),
+                                        this->reply);
       this->contribute(msg);
     }
   }
