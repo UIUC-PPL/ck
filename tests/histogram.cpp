@@ -124,7 +124,7 @@ void HistogramMerger::registerMe(void) { nCharesOnMyPe++; }
 
 // Demonstration of custom reduction registration!
 template <typename T>
-T sum(const T& lhs, const T& rhs) {
+T sum(const T &lhs, const T &rhs) {
   return lhs + rhs;
 }
 
