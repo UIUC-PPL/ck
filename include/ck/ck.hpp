@@ -4,6 +4,7 @@
 #include <ck/callback.hpp>
 #include <ck/chare.hpp>
 #include <ck/readonly.hpp>
+#include <ck/reduction.hpp>
 
 namespace ck {
 template <typename Base>
@@ -35,6 +36,11 @@ inline void __register(void) {
   auto& readonlies = registry::readonlies();
   for (auto& readonly : readonlies) {
     (*readonly)();
+  }
+
+  auto& reducers = registry::reducers();
+  for (auto& reducer : reducers) {
+    (*reducer)();
   }
 }
 }  // namespace ck

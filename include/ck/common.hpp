@@ -22,6 +22,12 @@ struct registry {
     static std::vector<register_fn_t> instance;
     return instance;
   }
+
+  // singleton instance of reducer registry
+  static std::vector<register_fn_t>& reducers(void) {
+    static std::vector<register_fn_t> instance;
+    return instance;
+  }
 };
 
 // "stamps" a message with the given entry options, an

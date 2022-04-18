@@ -122,6 +122,12 @@ HistogramMerger::HistogramMerger(int nKeys) {
 
 void HistogramMerger::registerMe(void) { nCharesOnMyPe++; }
 
+// Demonstration of custom reduction registration!
+template <typename T>
+T sum(const T& lhs, const T& rhs) {
+  return lhs + rhs;
+}
+
 // This method (also not an entry) is called by a chare on its local branch
 // of the HistogramMerger group to submit a partial histogram
 void HistogramMerger::submitCounts(int *binCounts, int nBins) {
@@ -136,6 +142,6 @@ void HistogramMerger::submitCounts(int *binCounts, int nBins) {
   if (nSubmissionsReceived == nCharesOnMyPe) {
     auto cb = ck::make_callback<&Main::receiveHistogram>(mainProxy);
     contribute(mergedCounts.size() * sizeof(int), mergedCounts.data(),
-               CkReduction::sum_int, cb);
+               ck::reducer<&sum<int>>(), cb);
   }
 }
