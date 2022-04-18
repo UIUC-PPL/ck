@@ -1,7 +1,8 @@
 #ifndef CK_PUP_HPP
 #define CK_PUP_HPP
 
-#include <ck/traits.hpp>
+#include <ck/reduction.hpp>
+#include <ck/span.hpp>
 
 namespace ck {
 
@@ -62,6 +63,31 @@ struct unpacker<main_arguments_t> {
   }
 
   main_arguments_t& value(void) { return this->args_; }
+};
+
+template <typename T>
+struct unpacker<std::tuple<ck::span<T>>> {
+ private:
+  using vector_t = ck::span<T>;
+  std::tuple<vector_t> storage_;
+
+ public:
+  unpacker(void* msg) {
+    auto* env = UsrToEnv(msg);
+    auto msgidx = env->getMsgIdx();
+    if (msgidx == CkReductionMsg::__idx) {
+      this->storage_ = ck::unpack_contribution<T>((CkReductionMsg*)msg);
+    } else if (msgidx == CkDataMsg::__idx) {
+      this->storage_ = ck::unpack_contribution<T>((CkDataMsg*)msg);
+    } else {
+      PUP::fromMem p(CkGetMsgBuffer(msg));
+      PUP::detail::TemporaryObjectHolder<std::vector<T>> t;
+      p | t.t;
+      this->storage_ = std::move(t.t);
+    }
+  }
+
+  auto& value(void) { return this->storage_; }
 };
 
 template <typename... Args>

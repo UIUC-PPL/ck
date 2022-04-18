@@ -60,10 +60,9 @@ void Main::charesRegistered(void) {
 }
 
 // This entry method receives the results of the histogramming operation
-void Main::receiveHistogram(CkReductionMsg *msg) {
-  auto binCounts = ck::unpack_contribution<int>(msg);
+// NOTE ( uses ck::span so it safely unpacks the CkReductionMsg )
+void Main::receiveHistogram(ck::span<int>&& binCounts) {
   auto nBins = (int)binCounts.size(), nTotalElements = 0;
-  delete msg;
 
   // Print out number of values in each bin, check for sanity and exit
   CkPrintf("[main] histogram: \n");

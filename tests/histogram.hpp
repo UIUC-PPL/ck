@@ -32,7 +32,7 @@ class Main : public ck::chare<Main, ck::main_chare> {
  public:
   Main(int argc, char** argv);
   void charesRegistered(void);
-  void receiveHistogram(CkReductionMsg* msg);
+  void receiveHistogram(ck::span<int>&&);
 };
 
 CK_READONLY(ck::chare_proxy<Main>, mainProxy);

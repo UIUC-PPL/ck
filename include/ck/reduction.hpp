@@ -63,8 +63,8 @@ CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
   return msg;
 }
 
-template <typename T>
-std::vector<T> unpack_contribution(CkReductionMsg* msg) {
+template <typename T, typename Message = CkReductionMsg>
+std::vector<T> unpack_contribution(Message* msg) {
   auto* data = reinterpret_cast<std::byte*>(msg->getData());
   auto size = msg->getLength();
   if constexpr (is_bytes_v<T>) {
