@@ -24,3 +24,7 @@ All singleton chares (and main chares, by extension) use :code:`ck::chare_proxy`
 Callbacks
 =========
 Users can create callbacks to entry methods using the :code:`ck::make_callback` function template. Its template parameter is an entry method, while its argument is the target proxy.
+
+Reducers
+========
+One can register custom reducer functions (i.e., those that combine contributions during reductions) using the :code:`ck::reducer` function. Generally, valid reducers are of the form :code:`T(*)(T,T)`, although their arguments may be :code:`const` or r-value references. Note that we consider all reducers over :code:`PUPBytes` types as "streamable." We provide a helper function for forming contributions, :code:`pack_contribution` (name pending).
