@@ -4,6 +4,7 @@
 #include <ck/callback.hpp>
 #include <ck/chare.hpp>
 #include <ck/extends.hpp>
+#include <ck/pupable.hpp>
 #include <ck/readonly.hpp>
 #include <ck/reduction.hpp>
 
@@ -42,6 +43,11 @@ inline void __register(void) {
   auto& reducers = registry::reducers();
   for (auto& reducer : reducers) {
     (*reducer)();
+  }
+
+  auto& pupables = registry::pupables();
+  for (auto& pupable : pupables) {
+    (*pupable)();
   }
 }
 }  // namespace ck

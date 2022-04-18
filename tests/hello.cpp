@@ -7,9 +7,40 @@ T sum(T&& lhs, T&& rhs) {
   return lhs + ", " + rhs;
 }
 
+class greetable : public ck::pupable<greetable> {
+  using parent_t = ck::pupable<greetable>;
+
+ protected:
+  template <typename... Args>
+  greetable(Args&&... args) : parent_t(std::forward<Args>(args)...) {}
+
+ public:
+  virtual std::string name(void) = 0;
+};
+
+class greetable_person : public ck::pupable<greetable_person, greetable> {
+  std::string name_;
+
+  using parent_t = ck::pupable<greetable_person, greetable>;
+
+ public:
+  greetable_person(std::string&& name) : name_(std::move(name)) {}
+
+  greetable_person(CkMigrateMessage* m) : parent_t(m) {}
+
+  virtual std::string name(void) override { return "person " + this->name_; }
+
+  virtual void pup(PUP::er& p) override {
+    parent_t::pup(p);
+    p | this->name_;
+  }
+};
+
 class greeter : public ck::chare<greeter, ck::array<CkIndex1D>> {
  public:
   virtual void greet(int data) = 0;
+
+  virtual void greet_greetable(std::unique_ptr<greetable>&&) = 0;
 };
 
 class hello : public ck::extends<hello, greeter> {
@@ -34,8 +65,17 @@ class hello : public ck::extends<hello, greeter> {
 
   virtual void greet(int data) override {
     CkPrintf("%d> hello with data %d!\n", thisIndex, data);
+    this->tally();
+  }
 
-    if (++nRecvd == 2) {
+  virtual void greet_greetable(std::unique_ptr<greetable>&& obj) override {
+    CkPrintf("%d> hello to %s\n", thisIndex, obj->name().c_str());
+    this->tally();
+  }
+
+ private:
+  void tally(void) {
+    if (++nRecvd == 3) {
       // takes begin..end so we need to pretend to be an array
       auto str = std::to_string(thisIndex);
       auto* msg = ck::pack_contribution(str, ck::reducer<&sum<std::string>>(),
@@ -59,6 +99,8 @@ class main : public ck::chare<main, ck::main_chare> {
     auto proxy = ck::array_proxy<hello>::create(reply, opts);
     // broadcast via parameter marshaling
     proxy.send<&greeter::greet>(data * 2 + 12);
+    proxy.send<&greeter::greet_greetable>(
+        std::unique_ptr<greetable>(new greetable_person("bob")));
     // send via conventional messaging
     proxy[0].send<&hello::say_hello_msg>(
         CkDataMsg::buildNew(sizeof(int), &data));
