@@ -63,6 +63,27 @@ CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
   return msg;
 }
 
+template <typename T>
+std::vector<T> unpack_contribution(CkReductionMsg* msg) {
+  auto* data = reinterpret_cast<std::byte*>(msg->getData());
+  auto size = msg->getLength();
+  if constexpr (is_bytes_v<T>) {
+    auto* begin = reinterpret_cast<T*>(data);
+    auto* end = begin + (size / sizeof(T));
+    return std::vector<T>(begin, end);
+  } else {
+    std::vector<T> res;
+    PUP::fromMem p(data);
+    while (p.size() < size) {
+      PUP::detail::TemporaryObjectHolder<T> t;
+      p | t;
+      res.emplace_back(std::move(t.t));
+    }
+    CkEnforceMsg(p.size() == size, "pup size mismatch");
+    return res;
+  }
+}
+
 template <auto Fn>
 using data_of_t = typename data_of<Fn>::type;
 
@@ -73,19 +94,6 @@ struct reducer_registrar {
 
   using data_t = data_of_t<Fn>;
   static constexpr auto is_bytes = is_bytes_v<data_t>;
-
-  template <typename T>
-  static void __unpack(std::vector<T>& res, CkReductionMsg* msg) {
-    auto* data = reinterpret_cast<std::byte*>(msg->getData());
-    auto offset = 0, size = msg->getLength();
-    while (offset < size) {
-      PUP::fromMem p(data + offset);
-      PUP::detail::TemporaryObjectHolder<T> t;
-      p | t;
-      res.emplace_back(std::move(t.t));
-      offset += p.size();
-    }
-  }
 
   static CkReductionMsg* __call(int nmsgs, CkReductionMsg** msgs) {
     if constexpr (is_bytes) {
@@ -104,13 +112,11 @@ struct reducer_registrar {
 
       return CkReductionMsg::buildNew(rmsg->getLength(), rdata, __type, rmsg);
     } else {
-      std::vector<data_t> lhs;
-      __unpack(lhs, msgs[0]);
+      auto lhs = unpack_contribution<data_t>(msgs[0]);
       auto len = lhs.size();
       // unpack all the remaining messages
       for (auto i = 1; i < nmsgs; i++) {
-        std::vector<data_t> rhs;
-        __unpack(rhs, msgs[i]);
+        auto rhs = unpack_contribution<data_t>(msgs[i]);
         CkEnforce(len == rhs.size());
         // accumulating the results into lhs
         for (auto j = 0; j < len; j++) {

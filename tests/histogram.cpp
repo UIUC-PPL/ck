@@ -59,11 +59,11 @@ void Main::charesRegistered(void) {
   histogramProxy.send<&Histogram::count>(bins);
 }
 
+// This entry method receives the results of the histogramming operation
 void Main::receiveHistogram(CkReductionMsg *msg) {
-  // This entry method receives the results of the histogramming operation
-  int nTotalElements = 0;
-  int nBins = msg->getLength() / sizeof(int);
-  int *binCounts = (int *)msg->getData();
+  auto binCounts = ck::unpack_contribution<int>(msg);
+  auto nBins = (int)binCounts.size(), nTotalElements = 0;
+  delete msg;
 
   // Print out number of values in each bin, check for sanity and exit
   CkPrintf("[main] histogram: \n");
