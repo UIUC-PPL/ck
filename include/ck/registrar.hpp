@@ -41,7 +41,10 @@ struct index {
 
     __idx = CkRegisterChare(__PRETTY_FUNCTION__, sizeof(Base),
                             collection_kind_t::kind);
-    CkRegisterBase(__idx, collection_kind_t::__idx);
+
+    auto base = base_index_of_v<Base>;
+    CkEnforceMsg(base >= 0, "derived class init'd before parent");
+    CkRegisterBase(__idx, base);
 
     if constexpr (is_array_v<collection_kind_t>) {
       using collection_index_t = index_of_t<collection_kind_t>;
@@ -80,7 +83,7 @@ struct index {
 };
 
 template <typename Base>
-int index<Base>::__idx;
+int index<Base>::__idx = -1;
 
 template <class Base, auto Entry>
 struct method_registrar {

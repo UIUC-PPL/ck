@@ -339,6 +339,20 @@ using group_proxy = collection_proxy<Base, group>;
 template <typename Base>
 using nodegroup_proxy = collection_proxy<Base, nodegroup>;
 
+template <typename T, typename Kind, typename Enable = void>
+struct instance_proxy_of {
+  using type = collection_proxy<T, Kind>;
+};
+
+template <typename T, typename Kind>
+struct instance_proxy_of<
+    T, Kind, std::enable_if_t<std::is_base_of_v<singleton_chare, Kind>>> {
+  using type = chare_proxy<T>;
+};
+
+template <typename T, typename Kind = kind_of_t<T>>
+using instance_proxy_of_t = typename instance_proxy_of<T, Kind>::type;
+
 namespace {
 template <typename Base, typename Index, typename... Args>
 array_proxy<Base, Index> __create_array(const CkArrayOptions &opts,

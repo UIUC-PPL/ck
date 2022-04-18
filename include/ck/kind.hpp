@@ -55,6 +55,13 @@ template <typename Base>
 using kind_of_t = typename kind_of<Base>::type;
 
 template <typename T>
+struct base_index_of;
+
+// Retrieve the base class's index of T for use with CkRegisterBase
+template <typename T>
+static constexpr auto& base_index_of_v = base_index_of<T>::value;
+
+template <typename T>
 using index_of_t = typename T::index_t;
 
 template <typename T>

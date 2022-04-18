@@ -7,7 +7,12 @@ T sum(T&& lhs, T&& rhs) {
   return lhs + ", " + rhs;
 }
 
-class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
+class greeter : public ck::chare<greeter, ck::array<CkIndex1D>> {
+ public:
+  virtual void greet(int data) = 0;
+};
+
+class hello : public ck::extends<hello, greeter> {
   ck::callback<std::string> reply;
   int nRecvd;
 
@@ -15,7 +20,7 @@ class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
   hello(const ck::callback<std::string>& reply_) : reply(reply_), nRecvd(0) {}
 
   void say_hello_msg(CkDataMsg* msg) {
-    this->say_hello_int(*((int*)msg->getData()));
+    this->greet(*((int*)msg->getData()));
 
     auto mine = thisIndex;
     auto right = mine + 2;
@@ -27,7 +32,7 @@ class hello : public ck::chare<hello, ck::array<CkIndex1D>> {
     }
   }
 
-  void say_hello_int(int data) {
+  virtual void greet(int data) override {
     CkPrintf("%d> hello with data %d!\n", thisIndex, data);
 
     if (++nRecvd == 2) {
@@ -53,7 +58,7 @@ class main : public ck::chare<main, ck::main_chare> {
     auto reply = ck::make_callback<&main::reply>(thisProxy);
     auto proxy = ck::array_proxy<hello>::create(reply, opts);
     // broadcast via parameter marshaling
-    proxy.send<&hello::say_hello_int>(data * 2 + 12);
+    proxy.send<&greeter::greet>(data * 2 + 12);
     // send via conventional messaging
     proxy[0].send<&hello::say_hello_msg>(
         CkDataMsg::buildNew(sizeof(int), &data));

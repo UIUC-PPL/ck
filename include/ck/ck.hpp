@@ -3,6 +3,7 @@
 
 #include <ck/callback.hpp>
 #include <ck/chare.hpp>
+#include <ck/extends.hpp>
 #include <ck/readonly.hpp>
 #include <ck/reduction.hpp>
 
