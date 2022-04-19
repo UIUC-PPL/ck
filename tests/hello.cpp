@@ -69,7 +69,7 @@ class hello : public ck::extends<hello, greeter> {
   }
 
   virtual void greet_greetable(std::unique_ptr<greetable>&& obj) override {
-    CkPrintf("%d> hello to %s\n", thisIndex, obj->name().c_str());
+    CkPrintf("%d> hello to %s!\n", thisIndex, obj->name().c_str());
     this->tally();
   }
 

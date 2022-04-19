@@ -26,7 +26,7 @@ struct pupable : public Parent {
     auto* obj = ::operator new(sizeof(T));
     call_migration_constructor<T> caller(obj);
     caller((CkMigrateMessage*)nullptr);
-    return reinterpret_cast<PUP::able*>(obj);
+    return reinterpret_cast<T*>(obj);
   }
 
   static void __register(void) {
