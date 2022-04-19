@@ -8,6 +8,37 @@ template <typename Class, typename... Args>
 using member_fn_t = void (Class::*)(Args...);
 
 namespace {
+template <typename T>
+struct member_pointer_impl;
+
+template <typename Class, typename Value>
+struct member_pointer_impl<Value Class::*> {
+  static constexpr auto is_method = false;
+  using class_type = Class;
+  using value_type = Value;
+};
+
+template <typename Class, typename Rval, typename... Args>
+struct member_pointer_impl<Rval (Class::*)(Args...)> {
+  static constexpr auto is_method = true;
+  using class_type = Class;
+  using value_type = Rval (Class::*)(Args...);
+};
+}  // namespace
+
+template <auto Entry>
+struct member_getter {
+  using entry_type = decltype(Entry);
+  using helper_type = member_pointer_impl<entry_type>;
+  using class_type = typename helper_type::class_type;
+  using type = typename helper_type::value_type;
+  static constexpr auto is_method = helper_type::is_method;
+};
+
+template <auto Entry>
+constexpr auto is_method_v = member_getter<Entry>::is_method;
+
+namespace {
 template <typename... Ts>
 constexpr std::tuple<std::decay_t<Ts>...> decay_types(std::tuple<Ts...> const&);
 }
@@ -75,12 +106,17 @@ struct message_index_of<std::tuple<Message*, Ts...>,
 template <typename... Ts>
 constexpr auto& message_index_of_v = message_index_of<std::tuple<Ts...>>::value;
 
-template <auto Entry>
+template <auto Entry, typename Enable = void>
 struct message_index;
 
 template <typename Class, typename... Args, member_fn_t<Class, Args...> Entry>
 struct message_index<Entry> {
   static constexpr auto& value = message_index_of_v<Args...>;
+};
+
+template <typename Class, typename Value, Value Class::*Entry>
+struct message_index<Entry, std::enable_if_t<!is_method_v<Entry>>> {
+  static constexpr auto& value = CkMarshallMsg::__idx;
 };
 
 template <auto Entry>

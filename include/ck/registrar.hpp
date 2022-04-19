@@ -96,12 +96,20 @@ struct method_registrar {
                 (std::is_same_v<nodegroup, kind_of_t<Base>> && !is_threaded));
 
   static void __call(void* msg, void* obj) {
-    using arguments_t = method_arguments_t<Entry>;
-    using tuple_t = decay_tuple_t<arguments_t>;
-    unpacker<tuple_t> t(msg);
-    std::apply(
-        [&](auto... args) { (((Base*)obj)->*Entry)(std::move(args)...); },
-        std::move(t.value()));
+    using helper_t = member_getter<Entry>;
+    if constexpr (helper_t::is_method) {
+      using arguments_t = method_arguments_t<Entry>;
+      using tuple_t = decay_tuple_t<arguments_t>;
+      unpacker<tuple_t> t(msg);
+      std::apply(
+          [&](auto... args) { (((Base*)obj)->*Entry)(std::move(args)...); },
+          std::move(t.value()));
+    } else {
+      using mailbox_t = typename helper_t::type;
+      using tuple_t = std::tuple<typename mailbox_t::type>;
+      unpacker<tuple_t> t(msg);
+      (static_cast<Base*>(obj)->*Entry).post(std::move(std::get<0>(t.value())));
+    }
   }
 
   static void __thrcall(void* arg_) {

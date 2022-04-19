@@ -37,12 +37,17 @@ CK_ENTRY_ATTRIBUTE_DECLARE(threaded);
 
 // TODO (add appwork, memcritcal, etc. )
 
-template <auto Entry>
+template <auto Entry, typename Enable = void>
 struct is_nokeep;
 
 template <typename Class, typename... Args, member_fn_t<Class, Args...> Entry>
 struct is_nokeep<Entry> {
   static constexpr auto value = !is_message_v<std::decay_t<Args>...>;
+};
+
+template <typename Class, typename Value, Value Class::*Entry>
+struct is_nokeep<Entry, std::enable_if_t<!is_method_v<Entry>>> {
+  static constexpr auto value = !is_message_v<typename Value::type>;
 };
 
 template <auto Entry>
