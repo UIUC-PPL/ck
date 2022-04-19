@@ -33,7 +33,7 @@ struct main : public ck::chare<main, ck::main_chare> {
         auto t = mailbox.poll(new predicate(i));
         CkPrintf("%p> received %d\n", CthSelf(), t);
       }
-
+      /* serial */ 
       send = !send;
     }
 
