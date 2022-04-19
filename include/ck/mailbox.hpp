@@ -1,50 +1,10 @@
 #ifndef CK_MAILBOX_HPP
 #define CK_MAILBOX_HPP
 
+#include <ck/callback.hpp>
 #include <ck/pupable.hpp>
 
-PUPbytes(CmiObjId);
-
 namespace ck {
-
-// TODO ( implement this on the back of the migratable threads infrastructure )
-CthThread lookup_thread(const CmiObjId& tid) { return nullptr; }
-
-template <typename T>
-struct action {
- private:
-  CthThread th_;
-  T* t_;
-
- public:
-  action(void) = default;
-
-  action(CthThread th, T* t) : th_(th), t_(t) {}
-
-  void operator()(T&& t) const {
-    *(this->t_) = std::forward<T>(t);
-
-    if (this->th_ != CthSelf()) {
-      CthAwaken(this->th_);
-    }
-  }
-
-  void pup(PUP::er& p) {
-    if (p.isUnpacking()) {
-      CmiObjId tid;
-      p | tid;
-      this->th_ = lookup_thread(tid);
-    } else {
-      // TODO ( enforce that thread is migratable )
-      auto& tid = *(CthGetThreadID(this->th_));
-      p | tid;
-    }
-
-    auto t = reinterpret_cast<std::uintptr_t>(this->t_);
-    p | t;
-    this->t_ = reinterpret_cast<T*>(t);
-  }
-};
 
 template <typename T>
 struct predicate : public ck::pupable<predicate<T>> {
@@ -58,7 +18,7 @@ struct predicate : public ck::pupable<predicate<T>> {
 
 template <typename T>
 struct request {
-  using action_t = ck::action<T>;
+  using action_t = ck::callback<T>;
   using predicate_t = std::unique_ptr<predicate<T>>;
 
  private:
@@ -68,19 +28,16 @@ struct request {
  public:
   request(void) = default;
 
-  template <typename... Args>
-  request(CthThread th, T* t, Args&&... args)
-      : action_(th, t), predicate_(std::forward<Args>(args)...) {}
+  template <typename Arg, typename... Args>
+  request(Arg&& action, Args&&... args)
+      : action_(std::forward<Arg>(action)),
+        predicate_(std::forward<Args>(args)...) {}
 
   bool matches(const T& t) const {
     return !(this->predicate_) || ((*this->predicate_)(t));
   }
 
-  void operator()(T&& t) const { this->action_(std::forward<T>(t)); }
-
-  action_t& action(void) { return this->action_; }
-
-  const action_t& action(void) const { return this->action_; }
+  void operator()(T&& t) const { this->action_.send(std::forward<T>(t)); }
 
   void pup(PUP::er& p) {
     p | this->action_;
@@ -130,6 +87,17 @@ struct mailbox {
   }
 
  public:
+  void poll(const ck::callback<T>& action, predicate_t&& predicate) {
+    auto search = this->find_matching_(predicate);
+    if (search != std::end(this->buffer_)) {
+      auto t = std::move(*search);
+      (this->buffer_).erase(search);
+      action.send(std::move(t));
+    } else {
+      (this->pending_).emplace_back(action, std::move(predicate));
+    }
+  }
+
   template <typename... Args>
   T poll(Args&&... args) {
     predicate_t predicate(std::forward<Args>(args)...);
@@ -139,11 +107,9 @@ struct mailbox {
       (this->buffer_).erase(search);
       return t;
     } else {
-      PUP::detail::TemporaryObjectHolder<T> holder;
-      (this->pending_)
-          .emplace_back(CthSelf(), &(holder.t), std::move(predicate));
-      CthSuspend();
-      return holder.t;
+      ck::future<T> f;
+      (this->pending_).emplace_back(f.handle(), std::move(predicate));
+      return f.get();
     }
   }
 
