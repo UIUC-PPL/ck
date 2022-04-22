@@ -5,20 +5,24 @@
 
 namespace ck {
 
-template <typename T>
-static constexpr auto is_bytes_v = PUP::as_bytes<T>::value;
-
-template <auto Fn>
-struct data_of;
-
+// a function that combines arguments of a given type
 template <typename Data>
 using reduction_fn_t = std::decay_t<Data> (*)(Data, Data);
+
+// helper class to find the data-type of a reduction function
+template <auto Fn>
+struct data_of;
 
 template <typename Data, reduction_fn_t<Data> Fn>
 struct data_of<Fn> {
   using type = std::decay_t<Data>;
 };
 
+// helper alias to find the data-type of a reduction function
+template <auto Fn>
+using data_of_t = typename data_of<Fn>::type;
+
+// helper function to pack a range of values into a CkReductionMsg
 template <typename Iterator>
 CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
                                   CkReduction::reducerType type) {
@@ -54,6 +58,7 @@ CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
   return msg;
 }
 
+// helper function to pack a range of values into a CkReductionMsg
 template <typename Iterator>
 CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
                                   CkReduction::reducerType type,
@@ -63,12 +68,14 @@ CkReductionMsg* pack_contribution(const Iterator& begin, const Iterator& end,
   return msg;
 }
 
+// helper function to pack a single value into a CkReductionMsg
 template <typename T>
 CkReductionMsg* pack_contribution(const T& value, CkReduction::reducerType type,
                                   const CkCallback& cb) {
   return pack_contribution(&value, &value + 1, type, cb);
 }
 
+// helper function to unpack a reduction-like message to a range of values
 template <typename T, typename Message = CkReductionMsg>
 std::vector<T> unpack_contribution(Message* msg) {
   auto* data = reinterpret_cast<std::byte*>(msg->getData());
@@ -90,9 +97,7 @@ std::vector<T> unpack_contribution(Message* msg) {
   }
 }
 
-template <auto Fn>
-using data_of_t = typename data_of<Fn>::type;
-
+// helper class to register reduction functions (i.e., reducers) with the rts
 template <auto Fn>
 struct reducer_registrar {
   static CkReduction::reducerType __type;
@@ -101,15 +106,20 @@ struct reducer_registrar {
   using data_t = data_of_t<Fn>;
   static constexpr auto is_bytes = is_bytes_v<data_t>;
 
+  // an instance of CkReduction::reducerFn, combining reduction
+  // messages that encode values of type data_t
   static CkReductionMsg* __call(int nmsgs, CkReductionMsg** msgs) {
     if constexpr (is_bytes) {
+      // note, we do not need to unpack bytes-like values
       auto& rmsg = msgs[0];
       auto* rdata = reinterpret_cast<data_t*>(rmsg->getData());
       auto rlen = rmsg->getLength() / sizeof(data_t);
-
+      // fold all the other messages into the first
+      // message since this is a streaming operation
       for (auto i = 1; i < nmsgs; i++) {
         auto& msg = msgs[i];
         auto* data = reinterpret_cast<data_t*>(msg->getData());
+        // each of which should be the same length
         CkEnforce(msg->getLength() == rmsg->getLength());
         for (auto j = 0; j < rlen; j++) {
           rdata[j] = Fn(rdata[j], data[j]);
@@ -130,15 +140,18 @@ struct reducer_registrar {
               Fn(std::forward<data_t>(lhs[j]), std::forward<data_t>(rhs[j]));
         }
       }
+      // repack the contributions (since we cannot reuse the messages)
       return pack_contribution(lhs.begin(), lhs.end(), __type);
     }
   }
 
+  // registers the __call method with the Charm++ RTS
   static void __register(void) {
     __type = CkReduction::addReducer(__call, is_bytes, __PRETTY_FUNCTION__);
   }
 };
 
+// appends a reducer to the list of reducers registered at startup
 template <auto Fn>
 int reducer_registrar<Fn>::__idx = ([](void) {
   auto& reg = registry::reducers();
@@ -150,6 +163,7 @@ int reducer_registrar<Fn>::__idx = ([](void) {
 template <auto Fn>
 CkReduction::reducerType reducer_registrar<Fn>::__type;
 
+// returns the CkReduction::reducerType of a user-defined reducer
 template <auto Fn>
 auto reducer(void) {
   __dummy(reducer_registrar<Fn>::__idx);

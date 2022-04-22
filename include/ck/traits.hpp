@@ -4,6 +4,11 @@
 #include <ck/common.hpp>
 
 namespace ck {
+
+// determines whether a value is a bytes type (see PUPBytes)
+template <typename T>
+static constexpr auto is_bytes_v = PUP::as_bytes<T>::value;
+
 template <typename Class, typename... Args>
 using member_fn_t = void (Class::*)(Args...);
 
