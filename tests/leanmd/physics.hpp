@@ -145,10 +145,8 @@ inline void calcPairForces(int stepCount, const CkIndex3D &first,
         }
       }
 
-  sendForces(first, stepCount,
-             ck::span<vec3>(firstmsg, firstmsg + firstLen, firstmsg));
-  sendForces(second, stepCount,
-             ck::span<vec3>(secondmsg, secondmsg + secondLen, secondmsg));
+  sendForces(first, stepCount, ck::span<vec3>(firstmsg, firstLen));
+  sendForces(second, stepCount, ck::span<vec3>(secondmsg, secondLen));
 }
 
 // function to calculate forces among atoms in a single list
@@ -184,8 +182,7 @@ inline void calcInternalForces(int stepCount, const CkIndex3D &first,
       }
     }
   }
-  sendForces(first, stepCount,
-             ck::span<vec3>(firstmsg, firstmsg + firstLen, firstmsg));
+  sendForces(first, stepCount, ck::span<vec3>(firstmsg, firstLen));
 }
 
 #endif

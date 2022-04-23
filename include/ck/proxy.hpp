@@ -128,13 +128,12 @@ CkSectionInfo &__info(Left &&..., CkSectionInfo &info, Right &&...) {
   return info;
 }
 
-template <typename Proxy>
-auto __index(const Proxy *proxy, const typename Proxy::Index &index) {
-  using index_t = std::decay_t<decltype(index)>;
+template <typename Proxy, typename Index>
+auto __index(const Proxy *proxy, const Index &index) {
   using element_t = typename Proxy::element_t;
 
   if constexpr (Proxy::is_array) {
-    return element_t(proxy->ckGetArrayID(), index_view<index_t>::encode(index),
+    return element_t(proxy->ckGetArrayID(), index_view<Index>::encode(index),
                      proxy->ckDelegatedTo(), proxy->ckDelegatedPtr());
   } else {
     return element_t(proxy->ckGetGroupID(), index, proxy->ckDelegatedTo(),
@@ -206,6 +205,12 @@ struct section_proxy : public section_proxy_of_t<Kind> {
           },
           std::forward<Args>(args)...);
     }
+  }
+
+  template<typename T = CkArrayIndex>
+  std::enable_if_t<(is_array && std::is_base_of_v<CkArrayIndex, T>), element_t>
+  operator[](const T& index) const {
+    return __index(this, index);
   }
 
   element_t operator[](const Index &index) const {
@@ -311,6 +316,12 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
     }
   }
 
+  template<typename T = CkArrayIndex>
+  std::enable_if_t<(is_array && std::is_base_of_v<CkArrayIndex, T>), element_t>
+  operator[](const T& index) const {
+    return __index(this, index);
+  }
+
   element_t operator[](const Index &index) const {
     return __index(this, index);
   }
@@ -354,11 +365,11 @@ template <typename T, typename Kind = kind_of_t<T>>
 using instance_proxy_of_t = typename instance_proxy_of<T, Kind>::type;
 
 namespace {
-template <typename Base, typename Index, typename... Args>
-array_proxy<Base, Index> __create_array(const CkArrayOptions &opts,
+template <typename Base, typename Index, typename Options, typename... Args>
+array_proxy<Base, Index> __create_array(const Options &opts,
                                         Args &&...args) {
   // pack the arguments into a message (with the entry options)
-  auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
+  auto *msg = ck::pack(opts.e_opts, std::forward<Args>(args)...);
   // retrieve the constructor's index
   auto ctor = index<Base>::template constructor_index<std::decay_t<Args>...>();
   // set the message type
@@ -401,8 +412,8 @@ struct creator<array_proxy<Base, Index>, Ts...> {
  public:
   template <typename... Args>
   array_proxy<Base, Index> operator()(Args &&...args) const {
-    if constexpr ((sizeof...(Args) == 0) &&
-                  !std::is_default_constructible_v<Base>) {
+    constexpr auto empty = sizeof...(Args) == 0;
+    if constexpr (empty) {
       CkArrayOptions opts;
       return CProxy_ArrayBase::ckCreateEmptyArray(opts);
     } else {

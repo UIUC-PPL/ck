@@ -35,6 +35,8 @@ struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>>
   }
 
  public:
+  CkEntryOptions* e_opts = nullptr;
+
   constructor_options(const index_t& stop)
       : constructor_options(index_view<index_t>::encode(stop)) {}
 

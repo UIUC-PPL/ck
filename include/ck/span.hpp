@@ -11,9 +11,9 @@ template <typename T>
 class span {
   T *begin_, *end_;
 
-  using message_ptr = std::unique_ptr<CkMessage>;
+  using source_ptr = std::shared_ptr<T>;
 
-  std::variant<std::monostate, message_ptr, std::vector<T>> source_;
+  std::variant<std::monostate, source_ptr, std::vector<T>> source_;
 
  public:
   span(void) = default;
@@ -23,11 +23,15 @@ class span {
         end_(t.data() + t.size()),
         source_(std::forward<std::vector<T>>(t)) {}
 
-  template <typename... Args>
-  span(T* begin, T* end, Args&&... args)
-      : begin_(begin),
-        end_(end),
-        source_(message_ptr(std::forward<Args>(args)...)) {}
+  span(std::shared_ptr<T[]>&& source, std::size_t size)
+      : span(source_ptr(source, source.get()), size) {}
+
+  span(source_ptr&& source, std::size_t size)
+      : begin_(source.get()), end_(begin_ + size),
+        source_(std::forward<source_ptr>(source)) {}
+
+  span(T* source, std::size_t size)
+      : span(source_ptr(source), size) {}
 
   T* begin(void) const { return this->begin_; }
 
@@ -45,8 +49,8 @@ class span {
       auto& data = std::get<std::vector<T>>(this->source_);
       p | data;
       // update the range
-      this->begin_ = data.begin();
-      this->end_ = data.begin() + data.size();
+      this->begin_ = data.data();
+      this->end_ = data.data() + data.size();
     } else if (std::holds_alternative<std::vector<T>>(this->source_)) {
       auto& data = std::get<std::vector<T>>(this->source_);
       p | data;
