@@ -1,6 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 IFS=$'\n\t'
+# ensure new enough bash version
+major=${BASH_VERSINFO[0]}
+minor=${BASH_VERSINFO[1]}
+if ! { [ "$major" -gt "4" ] || { [ "$major" -eq "4" ] && [ "$minor" -ge "2" ]; }; }; then
+    # see: https://stackoverflow.com/a/13219811/
+    echo "error> bash v4.2 or newer required"
+    exit 1
+fi
 # ensure charm path correctly specified
 basedir=${CHARM_HOME:-}
 if [ -z "$basedir" ] || [ ! -d "$basedir" ]; then
