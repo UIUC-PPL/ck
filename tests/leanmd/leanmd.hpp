@@ -54,6 +54,8 @@ class Compute : public ck::chare<Compute, ck::array<CkIndex6D>> {
 
   buffer_t<std::pair<CkIndex3D, ck::span<vec3>>> buffer;
 
+  void progress(void);
+
  public:
   using parent_t = ck::chare<Compute, ck::array<CkIndex6D>>;
   Compute(void);

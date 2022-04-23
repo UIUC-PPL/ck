@@ -322,13 +322,13 @@ void Cell::checkForces(std::vector<ck::span<vec3>>& thisBuffer) {
     for (auto& vals : thisBuffer) {
       this->addForces(vals.begin());
     }
-    // then destroy the buffer
+    // then destroy the buffer for this step
     this->forceBuffer.erase(this->stepCount);
     // update properties of atoms using new force values
     this->updateProperties();
     // progress to next iteration or do migrations
     if ((this->stepCount % MIGRATE_STEPCOUNT) == 0) {
-      // move the update count forward
+      // move the update count forward ( enabling progress )
       this->updateCount = this->stepCount;
       // send atoms that have moved beyond my cell to neighbors
       this->migrateParticles();
@@ -348,32 +348,40 @@ void Cell::receiveForces(int stepCount, ck::span<vec3>&& forces) {
   }
 }
 
+void Compute::progress(void) {
+  this->stepCount += 1;
+
+  if (this->stepCount <= finalStepCount) {
+    auto nExpected = (!selfInteract) + 1;
+    auto& thisBuffer = this->buffer[this->stepCount];
+    if (thisBuffer.size() >= nExpected) {
+      auto& first = thisBuffer.front();
+      this->calculateForces(this->stepCount, first.first,
+                            std::move(first.second));
+    }
+  }
+}
+
 void Compute::calculateForces(int stepCount, const CkIndex3D& index,
                               ck::span<vec3>&& positions) {
-  auto* thisBuffer = &(this->buffer[stepCount]);
+  auto& thisBuffer = this->buffer[stepCount];
   if (stepCount == this->stepCount) {
     if (selfInteract) {
       calcInternalForces(stepCount, index, std::move(positions));
-    } else if (thisBuffer->empty()) {
-      thisBuffer->emplace_back(index, std::move(positions));
+    } else if (thisBuffer.empty()) {
+      thisBuffer.emplace_back(index, std::move(positions));
       return;
     } else {
-      auto& second = thisBuffer->back();
+      auto& second = thisBuffer.back();
       calcPairForces(stepCount, index, std::move(positions), second.first,
                      std::move(second.second));
     }
     // destroy the buffers for this step
     this->buffer.erase(stepCount);
-    // check whether there are buffered values for the next step
-    thisBuffer = &(this->buffer[++this->stepCount]);
-    if ((this->stepCount <= finalStepCount) &&
-        (thisBuffer->size() == ((!selfInteract) + 1))) {
-      auto& first = thisBuffer->front();
-      this->calculateForces(this->stepCount, first.first,
-                            std::move(first.second));
-    }
+    // move onto the next step
+    this->progress();
   } else {
-    thisBuffer->emplace_back(index, std::move(positions));
+    thisBuffer.emplace_back(index, std::move(positions));
   }
 }
 
