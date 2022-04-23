@@ -5,7 +5,11 @@ IFS=$'\n\t'
 make clean
 make -j
 
-nproc=$(grep ^cpu\\scores /proc/cpuinfo | uniq |  awk '{print $4}')
+if [ "$OSTYPE" = "linux-gnu" ]; then
+    nproc=$(grep ^cpu\\scores /proc/cpuinfo | uniq |  awk '{print $4}')
+else
+    nproc=$(nproc)
+fi
 
 unset args
 declare -A args
