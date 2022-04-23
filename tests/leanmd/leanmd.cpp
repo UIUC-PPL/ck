@@ -55,13 +55,19 @@ Main::Main(CkArgMsg* m) {
 void Main::computesCreated(void) {
   computeArray.doneInserting();
   CkPrintf("Starting simulation .... \n\n");
-  // cellArray.run();
-  // computeArray.run();
+  cellArray.send<&Cell::progress>();
 }
 
-Compute::Compute() {
+void Main::done(void) {
+  CkPrintf("Simulation completed\n");
+  CkExit();
+}
+
+Compute::Compute(void) {
   stepCount = 1;
   usesAtSync = true;
+  selfInteract = thisIndex.x1 == thisIndex.x2 && thisIndex.y1 == thisIndex.y2 &&
+                 thisIndex.z1 == thisIndex.z2;
 }
 
 Cell::Cell(void) {
@@ -97,15 +103,14 @@ Cell::Cell(void) {
     particles[i].force.z = 0.0;
   }
 
-  stepCount = 1;
+  stepCount = 0;
   updateCount = 0;
-  forceCount = 0;
 
   this->createComputes();
 }
 
 // function to create my computes
-void Cell::createComputes() {
+void Cell::createComputes(void) {
   int x = thisIndex.x;
   int y = thisIndex.y;
   int z = thisIndex.z;
@@ -155,7 +160,7 @@ void Cell::createComputes() {
   contribute(cb);
 }
 
-void Cell::sendPositions() {
+void Cell::sendPositions(void) {
   // create the particle and control message to be sent to computes
   int len = particles.size();
   std::shared_ptr<vec3[]> positions(new vec3[len]);
@@ -165,12 +170,12 @@ void Cell::sendPositions() {
 
   for (int num = 0; num < inbrs; num++) {
     computeArray[computesList[num]].send<&Compute::calculateForces>(
-        thisIndex, stepCount, span);
+        stepCount, thisIndex, span);
   }
 }
 
 // send the atoms that have moved beyond my cell to neighbors
-void Cell::migrateParticles() {
+void Cell::migrateParticles(void) {
   std::vector<std::vector<Particle>> outgoing(inbrs);
 
   for (int i = 0; i < particles.size(); i++) {
@@ -189,7 +194,7 @@ void Cell::migrateParticles() {
     auto z1 = num % NBRS_Z - NBRS_Z / 2;
     cellArray[CkArrayIndex3D(WRAP_X(thisIndex.x + x1), WRAP_Y(thisIndex.y + y1),
                              WRAP_Z(thisIndex.z + z1))]
-        .send<&Cell::receiveParticles>(outgoing[num]);
+        .send<&Cell::receiveParticles>(this->stepCount, outgoing[num]);
   }
 }
 
@@ -220,7 +225,7 @@ void Cell::migrateToCell(Particle p, int& px, int& py, int& pz) {
 
 // Function to update properties (i.e. acceleration, velocity and position) in
 // particles
-void Cell::updateProperties() {
+void Cell::updateProperties(void) {
   int i;
   double powTen, powFteen, realTimeDelta, invMassParticle;
   powTen = pow(10.0, -10);
@@ -239,7 +244,6 @@ void Cell::updateProperties() {
     particles[i].force.y = 0.0;
     particles[i].force.z = 0.0;
   }
-  forceCount = 0;
 }
 
 void Cell::addForces(vec3* forces) {
@@ -279,10 +283,104 @@ Particle& Cell::wrapAround(Particle& p) {
   return p;
 }
 
-void Cell::receiveParticles(std::vector<Particle>&& particles) {}
+void Cell::progress(void) {
+  this->stepCount += 1;
 
-void Compute::calculateForces(const CkIndex3D& index, int stepCount,
-                              ck::span<vec3>&& positions) {}
+  if (this->stepCount <= finalStepCount) {
+    this->sendPositions();
+    this->checkForces(this->forceBuffer[stepCount]);
+  } else {
+    auto cb = ck::make_callback<&Main::done>(mainProxy);
+    this->contribute(cb);
+  }
+}
+
+void Cell::receiveParticles(int stepCount, ck::span<Particle>&& particles) {
+  auto& thisBuffer = this->particleBuffer[stepCount];
+  thisBuffer.emplace_back(std::move(particles));
+  if (stepCount == this->updateCount) {
+    this->checkParticles(thisBuffer);
+  }
+}
+
+void Cell::checkParticles(std::vector<ck::span<Particle>>& thisBuffer) {
+  if (thisBuffer.size() >= inbrs) {
+    // receive particles from my neighbors
+    for (auto& vals : thisBuffer) {
+      this->particles.insert(this->particles.end(), vals.begin(), vals.end());
+    }
+    // then destroy the buffer
+    this->particleBuffer.erase(this->stepCount);
+    // then move to the next iteration
+    this->progress();
+  }
+}
+
+void Cell::checkForces(std::vector<ck::span<vec3>>& thisBuffer) {
+  if (thisBuffer.size() >= inbrs) {
+    // add all the buffered forces
+    for (auto& vals : thisBuffer) {
+      this->addForces(vals.begin());
+    }
+    // then destroy the buffer
+    this->forceBuffer.erase(this->stepCount);
+    // update properties of atoms using new force values
+    this->updateProperties();
+    // progress to next iteration or do migrations
+    if ((this->stepCount % MIGRATE_STEPCOUNT) == 0) {
+      // move the update count forward
+      this->updateCount = this->stepCount;
+      // send atoms that have moved beyond my cell to neighbors
+      this->migrateParticles();
+      // check whether all atoms have arrived from my neighbors
+      this->checkParticles(this->particleBuffer[this->stepCount]);
+    } else {
+      this->progress();
+    }
+  }
+}
+
+void Cell::receiveForces(int stepCount, ck::span<vec3>&& forces) {
+  auto& thisBuffer = this->forceBuffer[stepCount];
+  thisBuffer.emplace_back(std::move(forces));
+  if (stepCount == this->stepCount) {
+    this->checkForces(thisBuffer);
+  }
+}
+
+void Compute::calculateForces(int stepCount, const CkIndex3D& index,
+                              ck::span<vec3>&& positions) {
+  auto& thisBuffer = this->buffer[stepCount];
+  if (stepCount == this->stepCount) {
+    if (selfInteract) {
+      calcInternalForces(stepCount, index, std::move(positions));
+    } else if (thisBuffer.empty()) {
+      thisBuffer.emplace_back(index, std::move(positions));
+      return;
+    } else {
+      auto& second = thisBuffer.back();
+      calcPairForces(stepCount, index, std::move(positions), second.first,
+                     std::move(second.second));
+    }
+    // destroy the buffers for this step
+    this->buffer.erase(stepCount);
+    // check whether there are buffered values for the next step
+    thisBuffer = this->buffer[++this->stepCount];
+    if ((this->stepCount <= finalStepCount) &&
+        (thisBuffer.size() == ((!selfInteract) + 1))) {
+      auto& first = thisBuffer.front();
+      this->calculateForces(this->stepCount, first.first,
+                            std::move(first.second));
+    }
+  } else {
+    thisBuffer.emplace_back(index, std::move(positions));
+  }
+}
+
+void sendForces(const CkIndex3D& index, int stepCount,
+                ck::span<vec3>&& positions) {
+  cellArray[index].send<&Cell::receiveForces>(stepCount, std::move(positions));
+}
 
 void Cell::pup(PUP::er& p) {
   p | particles;
@@ -291,10 +389,15 @@ void Cell::pup(PUP::er& p) {
   p | myNumParts;
   p | inbrs;
   p | updateCount;
-  p | forceCount;
+  p | forceBuffer;
+  p | particleBuffer;
 }
 
-void Compute::pup(PUP::er& p) { p | stepCount; }
+void Compute::pup(PUP::er& p) {
+  p | stepCount;
+  p | selfInteract;
+  p | buffer;
+}
 
 void Main::pup(PUP::er& p) {}
 
