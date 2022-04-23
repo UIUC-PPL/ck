@@ -1,7 +1,7 @@
 INCLUDES:=$(INCLUDES) -I../include
 OPTS:=$(OPTS) -c++-option -std=c++17 $(INCLUDES)
 
-all: fib.out hello.out hierarchical_hello.out histogram.out
+all: fib.out hello.out hierarchical_hello.out histogram.out leanmd.out
 
 fib.out: fib.cpp
 	charmc $(OPTS) fib.cpp -o fib.out
@@ -15,5 +15,8 @@ hierarchical_hello.out: hierarchical_hello.cpp
 histogram.out: histogram.cpp histogram.hpp
 	charmc $(OPTS) histogram.cpp -o histogram.out
 
+leanmd.out: leanmd/*.*pp
+	charmc $(OPTS) -Ileanmd/ leanmd/leanmd.cpp -o leanmd.out
+
 clean:
-	rm -f charmrun fib.out hello.out hierarchical_hello.out histogram.out
+	rm -f charmrun fib.out hello.out hierarchical_hello.out histogram.out leanmd.out
