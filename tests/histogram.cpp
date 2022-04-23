@@ -19,11 +19,17 @@ Main::Main(int argc, char **argv) {
   }
 
   // Process command-line arguments
-  nChares =
-      std::max(CkNumPes(), atoi(argv[1]));  // need at least one chare per PE
+  nChares = atoi(argv[1]);
   nElementsPerChare = atoi(argv[2]);
   maxElementValue = atoi(argv[3]);
   nBins = atoi(argv[4]);
+
+  auto nPes = CkNumPes();
+  if (nChares < nPes) {
+    CkPrintf("[main] need at least one chare per pe (%d chares < %d pes)\n",
+             nChares, nPes);
+    CkExit(1);
+  }
 
   // Create Histogram chare array
   histogramProxy = ck::array_proxy<Histogram>::create(nElementsPerChare,
