@@ -19,7 +19,8 @@ Main::Main(int argc, char **argv) {
   }
 
   // Process command-line arguments
-  nChares = atoi(argv[1]);
+  nChares =
+      std::max(CkNumPes(), atoi(argv[1]));  // need at least one chare per PE
   nElementsPerChare = atoi(argv[2]);
   maxElementValue = atoi(argv[3]);
   nBins = atoi(argv[4]);
