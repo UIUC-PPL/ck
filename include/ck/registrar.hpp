@@ -7,35 +7,44 @@
 #include <ck/pup.hpp>
 
 namespace ck {
+// function that returns an index for an entry method
 using index_fn_t = int (*)(void);
 
+// returns the index of a mainchare's constructor
 template <typename Base>
 int main_chare_constructor(void);
 
+// helper that registers a chare-type with charm++
 template <class Base>
 struct chare_registrar {
   static int __idx;
+  // appends a chare to the list of chares to be registered
   static int __register(void);
 };
 
 template <class Base>
 int chare_registrar<Base>::__idx = __register();
 
+// registers a chare's (entry) constructor with the rts
 template <class Base, typename... Args>
 struct constructor_registrar;
 
+// registers a chare's entry method with the rts
 template <class Base, auto Entry>
 struct method_registrar;
 
+// holds all the indices for a chare and its entry methods
 template <typename Base>
 struct index {
   static int __idx;
 
+  // returns all the entry methods to register with the rts
   static std::vector<index_fn_t>& __entries(void) {
     static std::vector<index_fn_t> entries;
     return entries;
   }
 
+  // registers a chare with the rts, setting its properties
   static void __register(void) {
     using collection_kind_t = kind_of_t<Base>;
 
@@ -61,6 +70,7 @@ struct index {
     }
   }
 
+  // append an entry method to the list of functions to be registered
   template <index_fn_t Fn>
   static int __append(void) {
     auto& entries = __entries();
@@ -69,12 +79,14 @@ struct index {
     return ep;
   }
 
+  // function that registers and returns an entry constructor's index
   template <typename... Args>
   static int constructor_index(void) {
     static auto ep = constructor_registrar<Base, Args...>::__register();
     return ep;
   }
 
+  // function that registers and returns an entry method's index
   template <auto Entry>
   static int method_index(void) {
     static auto ep = method_registrar<Base, Entry>::__register();
@@ -82,6 +94,7 @@ struct index {
   }
 };
 
+// initialize to -1 before registration occurs
 template <typename Base>
 int index<Base>::__idx = -1;
 
@@ -184,6 +197,7 @@ struct constructor_registrar<Base, CkMigrateMessage*> {
   static int __idx;
 
   static void __call(void* msg, void* obj) {
+    // calls a chare's migration constructor via helper
     call_migration_constructor<Base> caller(obj);
     caller(reinterpret_cast<CkMigrateMessage*>(msg));
   }

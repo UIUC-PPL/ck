@@ -99,9 +99,6 @@ std::tuple<Args...> __arguments(member_fn_t<Class, Args...>);
 template <auto Fn>
 using method_arguments_t = decltype(__arguments(Fn));
 
-template <typename T>
-using storage_t = std::aligned_storage_t<sizeof(T), alignof(T)>;
-
 template <auto First, typename... Rest>
 constexpr auto get_first_v = First;
 
