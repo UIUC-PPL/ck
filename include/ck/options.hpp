@@ -6,9 +6,11 @@
 
 namespace ck {
 
+// options given to a constructor for a given class
 template <typename T, typename Enable = void>
 struct constructor_options;
 
+// options given to a constructor for a chare-array
 template <typename T>
 struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>>
     : public CkArrayOptions {
@@ -16,6 +18,7 @@ struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>>
   using array_index_t = array_index_of_t<index_t>;
 
  private:
+  // returns and validates the dimensions of a set of indices
   template <typename... Ts>
   static auto __get_dimension(Ts&&... ts) {
     short result;

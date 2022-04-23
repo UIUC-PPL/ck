@@ -40,6 +40,7 @@ CK_ENTRY_ATTRIBUTE_DECLARE(threaded);
 template <auto Entry>
 struct is_nokeep;
 
+// most entry methods that use marshaling are automatically nokeep
 template <typename Class, typename... Args, member_fn_t<Class, Args...> Entry>
 struct is_nokeep<Entry> {
   static constexpr auto value = !is_message_v<std::decay_t<Args>...>;
@@ -50,7 +51,7 @@ constexpr auto is_nokeep_v = is_nokeep<Entry>::value;
 
 namespace {
 template <auto Entry>
-constexpr auto registration_flags_impl(void) {
+constexpr auto registration_flags_value(void) {
   auto flags = 0;
   flags |= CK_EP_INLINE * is_inline_v<Entry>;
   flags |= CK_EP_IMMEDIATE * is_immediate_v<Entry>;
@@ -60,7 +61,7 @@ constexpr auto registration_flags_impl(void) {
 }
 
 template <auto Entry>
-constexpr auto message_flags_impl(void) {
+constexpr auto message_flags_value(void) {
   auto flags = 0;
   flags |= CK_MSG_INLINE * is_inline_v<Entry>;
   flags |= CK_MSG_IMMEDIATE * is_immediate_v<Entry>;
@@ -70,11 +71,13 @@ constexpr auto message_flags_impl(void) {
 }
 }  // namespace
 
+// returns an entry method's flags for a ckSend-like call
 template <auto Entry>
-constexpr auto message_flags = message_flags_impl<Entry>();
+constexpr auto message_flags_v = message_flags_value<Entry>();
 
+// returns an entry method's registration flags (given to CkRegisterEp)
 template <auto Entry>
-constexpr auto registration_flags = registration_flags_impl<Entry>();
+constexpr auto registration_flags_v = registration_flags_value<Entry>();
 }  // namespace ck
 
 #endif

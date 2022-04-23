@@ -150,7 +150,7 @@ struct array_sender {
     auto ep = index<Base>::template method_index<Entry>();
     UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
     ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
-    send((CkArrayMessage *)msg, ep, message_flags<Entry>);
+    send((CkArrayMessage *)msg, ep, message_flags_v<Entry>);
   }
 };
 
@@ -160,7 +160,7 @@ struct grouplike_sender {
                   Args &&...args) const {
     auto *msg = ck::pack(opts, std::forward<Args>(args)...);
     auto ep = index<Base>::template method_index<Entry>();
-    send((CkMessage *)msg, ep, message_flags<Entry>);
+    send((CkMessage *)msg, ep, message_flags_v<Entry>);
   }
 };
 }  // namespace

@@ -159,7 +159,7 @@ struct method_registrar {
     __dummy(__idx);
     return CkRegisterEp(__PRETTY_FUNCTION__, __choose_call(),
                         message_index_v<Entry>, index<Base>::__idx,
-                        registration_flags<Entry>);
+                        registration_flags_v<Entry>);
   }
 };
 
