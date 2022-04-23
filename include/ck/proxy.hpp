@@ -207,9 +207,9 @@ struct section_proxy : public section_proxy_of_t<Kind> {
     }
   }
 
-  template<typename T = CkArrayIndex>
+  template <typename T = CkArrayIndex>
   std::enable_if_t<(is_array && std::is_base_of_v<CkArrayIndex, T>), element_t>
-  operator[](const T& index) const {
+  operator[](const T &index) const {
     return __index(this, index);
   }
 
@@ -316,9 +316,9 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
     }
   }
 
-  template<typename T = CkArrayIndex>
+  template <typename T = CkArrayIndex>
   std::enable_if_t<(is_array && std::is_base_of_v<CkArrayIndex, T>), element_t>
-  operator[](const T& index) const {
+  operator[](const T &index) const {
     return __index(this, index);
   }
 
@@ -366,8 +366,7 @@ using instance_proxy_of_t = typename instance_proxy_of<T, Kind>::type;
 
 namespace {
 template <typename Base, typename Index, typename Options, typename... Args>
-array_proxy<Base, Index> __create_array(const Options &opts,
-                                        Args &&...args) {
+array_proxy<Base, Index> __create_array(const Options &opts, Args &&...args) {
   // pack the arguments into a message (with the entry options)
   auto *msg = ck::pack(opts.e_opts, std::forward<Args>(args)...);
   // retrieve the constructor's index

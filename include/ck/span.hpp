@@ -27,11 +27,11 @@ class span {
       : span(source_ptr(source, source.get()), size) {}
 
   span(source_ptr&& source, std::size_t size)
-      : begin_(source.get()), end_(begin_ + size),
+      : begin_(source.get()),
+        end_(begin_ + size),
         source_(std::forward<source_ptr>(source)) {}
 
-  span(T* source, std::size_t size)
-      : span(source_ptr(source), size) {}
+  span(T* source, std::size_t size) : span(source_ptr(source), size) {}
 
   T* begin(void) const { return this->begin_; }
 

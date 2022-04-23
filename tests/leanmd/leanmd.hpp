@@ -6,7 +6,7 @@
 #include "physics.hpp"
 
 template <typename T>
-using buffer_t = std::map<int, std::vector<T>>;
+using buffer_t = std::unordered_map<int, std::vector<T>>;
 
 class Cell : public ck::chare<Cell, ck::array<CkIndex3D>> {
  private:
@@ -52,8 +52,7 @@ class Compute : public ck::chare<Compute, ck::array<CkIndex6D>> {
   bool selfInteract;
   int stepCount;  // current step number
 
-  using force_t = std::pair<CkIndex3D, ck::span<vec3>>;
-  std::map<int, std::vector<force_t>> buffer;
+  buffer_t<std::pair<CkIndex3D, ck::span<vec3>>> buffer;
 
  public:
   using parent_t = ck::chare<Compute, ck::array<CkIndex6D>>;

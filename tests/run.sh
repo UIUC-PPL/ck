@@ -12,6 +12,7 @@ declare -A args
 
 args["histogram"]="4 4 4 4"
 args["leanmd"]="3 3 3 20"
+args["hierarchical_hello"]="4 4 +balancer RotateLB +LBDebug 1"
 
 allargs="++local"
 
