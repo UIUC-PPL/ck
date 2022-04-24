@@ -51,7 +51,7 @@ void Main::charesRegistered(void) {
   // HistogramMerger group
 
   // Now, create a number of bins
-  std::vector<int> bins(nBins);
+  ck::span<int> bins(nBins);
   int delta = maxElementValue / nBins;
   if (nBins * delta < maxElementValue) delta++;
 

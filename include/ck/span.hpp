@@ -31,6 +31,10 @@ class span {
         end_(begin_ + size),
         source_(std::forward<source_ptr>(source)) {}
 
+  template <typename... Args>
+  explicit span(std::size_t size, Args&&... args)
+      : span(std::vector<T>(size, std::forward<Args>(args)...)) {}
+
   // irrevocably takes ownership of the given source pointer
   span(T* source, std::size_t size) : span(source_ptr(source), size) {}
 
