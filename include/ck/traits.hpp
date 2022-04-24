@@ -40,6 +40,34 @@ static constexpr auto has_bytes_span_v = exists<is_bytes_span, Ts...>::value;
 template <typename Class, typename... Args>
 using member_fn_t = void (Class::*)(Args...);
 
+template <typename T, typename U>
+struct tuple_compatibility_helper : public std::false_type {};
+
+template <>
+struct tuple_compatibility_helper<std::tuple<>, std::tuple<>>
+    : public std::true_type {};
+
+template <typename T, typename... Ts, typename U, typename... Us>
+struct tuple_compatibility_helper<std::tuple<T, Ts...>, std::tuple<U, Us...>>
+    : public std::conditional_t<
+          std::is_assignable_v<std::decay_t<T>&, std::decay_t<U>&&>,
+          tuple_compatibility_helper<std::tuple<Ts...>, std::tuple<Us...>>,
+          std::false_type> {};
+
+template <auto Entry, typename... Args>
+struct is_compatible;
+
+template <typename Class, typename... Ts, member_fn_t<Class, Ts...> Member,
+          typename... Us>
+struct is_compatible<Member, Us...> {
+  static constexpr auto value =
+      (sizeof...(Ts) == sizeof...(Us)) &&
+      tuple_compatibility_helper<std::tuple<Ts...>, std::tuple<Us...>>::value;
+};
+
+template <auto Entry, typename... Args>
+constexpr auto is_compatible_v = is_compatible<Entry, Args...>::value;
+
 namespace {
 template <typename... Ts>
 constexpr std::tuple<std::decay_t<Ts>...> decay_types(std::tuple<Ts...> const&);

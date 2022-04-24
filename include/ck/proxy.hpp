@@ -15,6 +15,10 @@
   static constexpr auto is_array = is_array_v<Kind>; \
   static constexpr auto is_group = std::is_same_v<group, Kind>;
 
+#define CPROXY_SEND_CHECK                        \
+  static_assert(is_compatible_v<Entry, Args...>, \
+                "arguments incompatible with entry method")
+
 namespace ck {
 
 // creates a proxy with the given arguments
@@ -65,6 +69,8 @@ struct chare_proxy : public CProxy_Chare {
 
   template <auto Entry, typename... Args>
   void send(Args &&...args) const {
+    CPROXY_SEND_CHECK;
+
     if (__try_inline_or_local<Entry>(this, args...)) {
       return;
     }
@@ -143,6 +149,8 @@ auto __index(const Proxy *proxy, const Index &index) {
 
 template <typename Base, auto Entry, typename Send, typename... Args>
 struct array_sender {
+  CPROXY_SEND_CHECK;
+
   void operator()(CkEntryOptions *opts, const Send &send,
                   Args &&...args) const {
     auto *msg = ck::pack(opts, std::forward<Args>(args)...);
@@ -155,6 +163,8 @@ struct array_sender {
 
 template <typename Base, auto Entry, typename Send, typename... Args>
 struct grouplike_sender {
+  CPROXY_SEND_CHECK;
+
   void operator()(CkEntryOptions *opts, const Send &send,
                   Args &&...args) const {
     auto *msg = ck::pack(opts, std::forward<Args>(args)...);
