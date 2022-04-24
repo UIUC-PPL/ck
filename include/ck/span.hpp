@@ -41,6 +41,10 @@ class span {
 
   std::size_t size(void) const { return this->end_ - this->begin_; }
 
+  bool holds_source(void) const {
+    return std::holds_alternative<source_ptr>(this->source_);
+  }
+
   void pup(PUP::er& p) {
     if (p.isUnpacking()) {
       // initialize the source
@@ -63,6 +67,21 @@ class span {
     }
   }
 };
+
+namespace {
+template <typename T>
+struct get_span {
+  using type = void;
+};
+
+template <typename T>
+struct get_span<span<T>> {
+  using type = T;
+};
+}  // namespace
+
+template <typename T>
+using get_span_t = typename get_span<T>::type;
 }  // namespace ck
 
 #endif

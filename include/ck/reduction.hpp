@@ -76,7 +76,7 @@ CkReductionMsg* pack_contribution(const T& value, CkReduction::reducerType type,
 }
 
 // helper function to unpack a reduction-like message to a range of values
-template <typename T, typename Message = CkReductionMsg>
+template <typename T, typename Message>
 std::vector<T> unpack_contribution(Message* msg) {
   auto* data = reinterpret_cast<std::byte*>(msg->getData());
   auto size = msg->getLength();
@@ -95,6 +95,14 @@ std::vector<T> unpack_contribution(Message* msg) {
     CkEnforceMsg(p.size() == size, "pup size mismatch");
     return res;
   }
+}
+
+template <typename T, typename Message>
+std::enable_if_t<is_bytes_v<T>, ck::span<T>> unpack_contribution(
+    const std::shared_ptr<Message>& msg) {
+  auto* data = reinterpret_cast<T*>(msg->getData());
+  auto size = msg->getLength() / sizeof(T);
+  return ck::span(std::shared_ptr<T>(msg, data), size);
 }
 
 // helper class to register reduction functions (i.e., reducers) with the rts
