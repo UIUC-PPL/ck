@@ -5,9 +5,33 @@
 
 namespace ck {
 
+template <typename T, typename Enable = void>
+struct is_bytes : public PUP::as_bytes<T> {};
+
+template <typename T>
+struct is_bytes_span : public std::false_type {};
+
+template <typename T>
+struct is_bytes_span<ck::span<T>> : public is_bytes<T> {};
+
 // determines whether a value is a bytes type (see PUPBytes)
 template <typename T>
-static constexpr auto is_bytes_v = PUP::as_bytes<T>::value;
+static constexpr auto is_bytes_v = is_bytes<T>::value;
+
+// determines whether any parameter pack types match the predicate
+template <template <class...> class Predicate, typename... Ts>
+struct exists;
+
+template <template <class...> class Predicate>
+struct exists<Predicate> : public std::false_type {};
+
+template <template <class...> class Predicate, typename T, typename... Ts>
+struct exists<Predicate, T, Ts...>
+    : public std::conditional_t<Predicate<T>::value, std::true_type,
+                                exists<Predicate, Ts...>> {};
+
+template <typename... Ts>
+static constexpr auto has_bytes_span_v = exists<is_bytes_span, Ts...>::value;
 
 template <typename Class, typename... Args>
 using member_fn_t = void (Class::*)(Args...);

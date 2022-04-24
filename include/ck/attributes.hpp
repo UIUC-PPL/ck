@@ -43,7 +43,8 @@ struct is_nokeep;
 // most entry methods that use marshaling are automatically nokeep
 template <typename Class, typename... Args, member_fn_t<Class, Args...> Entry>
 struct is_nokeep<Entry> {
-  static constexpr auto value = !is_message_v<std::decay_t<Args>...>;
+  static constexpr auto value = !(is_message_v<std::decay_t<Args>...> ||
+                                  has_bytes_span_v<std::decay_t<Args...>>);
 };
 
 template <auto Entry>

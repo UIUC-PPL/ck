@@ -1,7 +1,7 @@
 #ifndef CK_COMMON_HPP
 #define CK_COMMON_HPP
 
-#include <charm++.h>
+#include <ck/span.hpp>
 
 namespace ck {
 template <typename T>
