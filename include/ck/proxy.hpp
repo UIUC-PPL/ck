@@ -76,7 +76,7 @@ struct chare_proxy : public CProxy_Chare {
     }
 
     auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
-    auto ep = index<Base>::template method_index<Entry>();
+    auto ep = get_entry_index<Base, Entry>();
     auto opts = 0;
     CkSendMsg(ep, msg, &ckGetChareID(), opts);
   }
@@ -154,7 +154,7 @@ struct array_sender {
   void operator()(CkEntryOptions *opts, const Send &send,
                   Args &&...args) const {
     auto *msg = ck::pack(opts, std::forward<Args>(args)...);
-    auto ep = index<Base>::template method_index<Entry>();
+    auto ep = get_entry_index<Base, Entry>();
     UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
     ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
     send((CkArrayMessage *)msg, ep, message_flags_v<Entry>);
@@ -168,7 +168,7 @@ struct grouplike_sender {
   void operator()(CkEntryOptions *opts, const Send &send,
                   Args &&...args) const {
     auto *msg = ck::pack(opts, std::forward<Args>(args)...);
-    auto ep = index<Base>::template method_index<Entry>();
+    auto ep = get_entry_index<Base, Entry>();
     send((CkMessage *)msg, ep, message_flags_v<Entry>);
   }
 };

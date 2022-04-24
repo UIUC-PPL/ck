@@ -64,6 +64,9 @@ inline CkMessage* stamp_message(CkMessage* msg, const CkEntryOptions* opts) {
   }
   return static_cast<CkMessage*>(EnvToUsr(env));
 }
+
+template <typename Class, auto Entry>
+int get_entry_index(void);
 }  // namespace ck
 
 #endif

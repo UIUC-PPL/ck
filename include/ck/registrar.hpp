@@ -102,6 +102,9 @@ template <class Base, auto Entry>
 struct method_registrar {
   static int __idx;
 
+  static_assert(std::is_same_v<Base, class_of_t<Entry>>,
+                "entry methods should be uniquely registered with their class");
+
   static constexpr auto is_exclusive = is_exclusive_v<Entry>;
   static constexpr auto is_threaded = is_threaded_v<Entry>;
 
@@ -135,7 +138,7 @@ struct method_registrar {
   static void __call_exclusive(void* msg, void* obj) {
     auto* grp = reinterpret_cast<NodeGroup*>(obj);
     if (CmiTryLock(grp->__nodelock)) {
-      auto ep = ck::index<Base>::template method_index<Entry>();
+      auto ep = get_entry_index<Base, Entry>();
       CkSendMsgNodeBranch(ep, msg, CkMyNode(), grp->CkGetNodeGroupID());
       return;
     }
@@ -220,6 +223,15 @@ template <class Base>
 int constructor_registrar<Base, CkMigrateMessage*>::__idx =
     index<Base>::template __append<
         &ck::index<Base>::template constructor_index<CkMigrateMessage*>>();
+
+// retrieve the index of a class's entry member
+template <typename Class, auto Entry>
+int get_entry_index(void) {
+  using class_type = class_of_t<Entry>;
+  static_assert(std::is_base_of_v<class_type, Class>,
+                "entry member and proxy type mis-match");
+  return ck::index<class_type>::template method_index<Entry>();
+}
 }  // namespace ck
 
 #endif

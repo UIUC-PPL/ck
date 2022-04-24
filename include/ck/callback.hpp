@@ -39,7 +39,7 @@ auto make_callback(const Proxy& proxy) {
   using local_t = typename Proxy::local_t;
   using arguments_t = method_arguments_t<Entry>;
   using callback_t = typename __callback<arguments_t>::type;
-  auto ep = ck::index<local_t>::template method_index<Entry>();
+  auto ep = get_entry_index<local_t, Entry>();
   return callback_t(ep, proxy);
 }
 }  // namespace ck

@@ -155,6 +155,19 @@ std::tuple<Args...> __arguments(member_fn_t<Class, Args...>);
 template <auto Fn>
 using method_arguments_t = decltype(__arguments(Fn));
 
+namespace {
+template <auto Member>
+struct class_of;
+
+template <typename Class, typename... Args, member_fn_t<Class, Args...> Method>
+struct class_of<Method> {
+  using type = Class;
+};
+}  // namespace
+
+template <auto Member>
+using class_of_t = typename class_of<Member>::type;
+
 template <auto First, typename... Rest>
 constexpr auto get_first_v = First;
 
