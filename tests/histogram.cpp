@@ -82,14 +82,13 @@ void Main::receiveHistogram(ck::span<int> &&binCounts) {
   CkExit();
 }
 
-void Histogram::count(std::vector<int> &&binCounts) {
-  int nKeys = binCounts.size();
-  int *begin = binCounts.data();
-  int *end = begin + nKeys;
+void Histogram::count(ck::span<int> &&binCounts) {
+  int *begin = binCounts.begin();
+  int *end = binCounts.end();
   int *search = NULL;
 
   // Allocate an array for the histogram and initialize the counts
-  std::vector<int> myCounts(nKeys, 0);
+  std::vector<int> myCounts(end - begin, 0);
 
   // Iterate over values in myValues
   for (int i = 0; i < myValues.size(); i++) {

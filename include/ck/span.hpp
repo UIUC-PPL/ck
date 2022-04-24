@@ -6,7 +6,7 @@
 #include <variant>
 
 namespace ck {
-// a range of values that can be hold ownership of a message
+// a range of values that can hold shared ownership of a message
 template <typename T>
 class span {
   T *begin_, *end_;
@@ -31,6 +31,7 @@ class span {
         end_(begin_ + size),
         source_(std::forward<source_ptr>(source)) {}
 
+  // irrevocably takes ownership of the given source pointer
   span(T* source, std::size_t size) : span(source_ptr(source), size) {}
 
   T* begin(void) const { return this->begin_; }

@@ -20,7 +20,7 @@ class Histogram : public ck::chare<Histogram, ck::array<CkIndex1D>> {
  public:
   Histogram(int nElementsPerChare, int maxElementValue);
   void registerWithMerger(void);
-  void count(std::vector<int>&& binValues);
+  void count(ck::span<int>&& binValues);
 };
 
 class Main : public ck::chare<Main, ck::main_chare> {
