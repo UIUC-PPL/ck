@@ -72,30 +72,22 @@ struct unpacker<std::tuple<Ts...>, std::enable_if_t<has_bytes_span_v<Ts...>>> {
   PUP::detail::TemporaryObjectHolder<tuple_t> storage_;
 
   template <std::size_t I>
-  void __unpack(const std::shared_ptr<CkMessage>& src, PUP::fromMem& p,
-                std::true_type) {
+  void __unpack(const std::shared_ptr<CkMessage>& src, PUP::fromMem& p) {
     auto& value = std::get<I>(this->value());
     using T = get_span_t<std::decay_t<decltype(value)>>;
-    std::size_t size;
-    p | size;
-    value = ck::span<T>(
-        std::shared_ptr<T>(src, reinterpret_cast<T*>(p.get_current_pointer())),
-        size);
-    p.advance(size * sizeof(T));
-  }
-
-  template <std::size_t I>
-  void __unpack(const std::shared_ptr<CkMessage>& src, PUP::fromMem& p,
-                std::false_type) {
-    p | std::get<I>(this->value());
-  }
-
-  template <std::size_t I>
-  void __unpack(const std::shared_ptr<CkMessage>& src, PUP::fromMem& p) {
-    constexpr auto tag =
-        is_bytes_v<get_span_t<std::tuple_element_t<I, tuple_t>>>;
+    // if this is a span over bytes-like values...
+    if constexpr (is_bytes_v<T>) {
+      // unpack it using a pointer-to-offset optimization
+      std::size_t size;
+      p | size;
+      auto* data = reinterpret_cast<T*>(p.get_current_pointer());
+      value = ck::span<T>(std::shared_ptr<T>(src, data), size);
+      p.advance(size * sizeof(T));
+    } else {
+      // otherwise, just unpack it directly
+      p | value;
+    }
     // the ordering of this descent MUST match pup_stl.h:pup_tuple_impl
-    __unpack<I>(src, p, std::bool_constant<tag>());
     if constexpr (I > 0) {
       __unpack<(I - 1)>(src, p);
     }
@@ -106,6 +98,7 @@ struct unpacker<std::tuple<Ts...>, std::enable_if_t<has_bytes_span_v<Ts...>>> {
     if constexpr (sizeof...(Ts) == 1) {
       using T = get_span_t<get_last_t<Ts...>>;
       auto msgidx = UsrToEnv(msg)->getMsgIdx();
+      // exit early for contribution-like messages
       if (msgidx == CkReductionMsg::__idx) {
         this->value() = ck::unpack_contribution<T>(
             std::shared_ptr<CkReductionMsg>((CkReductionMsg*)msg));
@@ -116,7 +109,7 @@ struct unpacker<std::tuple<Ts...>, std::enable_if_t<has_bytes_span_v<Ts...>>> {
         return;
       }
     }
-
+    // otherwise, unpack all values recursively
     std::shared_ptr<CkMessage> src((CkMessage*)msg);
     PUP::fromMem p(CkGetMsgBuffer(msg));
     __unpack<(sizeof...(Ts) - 1)>(src, p);
