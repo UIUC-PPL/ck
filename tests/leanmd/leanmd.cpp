@@ -162,15 +162,13 @@ void Cell::createComputes(void) {
 
 void Cell::sendPositions(void) {
   // create the particle and control message to be sent to computes
-  int len = particles.size();
-  std::shared_ptr<vec3[]> positions(new vec3[len]);
-  std::transform(particles.begin(), particles.end(), positions.get(),
+  ck::span<vec3> positions(particles.size());
+  std::transform(particles.begin(), particles.end(), positions.begin(),
                  [](const Particle& particle) { return particle.pos; });
-  ck::span<vec3> span(std::move(positions), len);
 
   for (int num = 0; num < inbrs; num++) {
     computeArray[computesList[num]].send<&Compute::calculateForces>(
-        stepCount, thisIndex, span);
+        stepCount, thisIndex, positions);
   }
 }
 

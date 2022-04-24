@@ -101,8 +101,8 @@ inline void calcPairForces(int stepCount, const CkIndex3D &first,
   vec3 separation, force;
   double rSix, rTwelve;
 
-  vec3 *firstmsg = new vec3[firstLen];
-  vec3 *secondmsg = new vec3[secondLen];
+  ck::span<vec3> firstmsg(firstLen);
+  ck::span<vec3> secondmsg(secondLen);
   // check for wrap around and adjust locations accordingly
   if (abs(first.x - second.x) > 1) {
     diff = CELL_SIZE_X * cellArrayDimX;
@@ -145,8 +145,8 @@ inline void calcPairForces(int stepCount, const CkIndex3D &first,
         }
       }
 
-  sendForces(first, stepCount, ck::span<vec3>(firstmsg, firstLen));
-  sendForces(second, stepCount, ck::span<vec3>(secondmsg, secondLen));
+  sendForces(first, stepCount, std::move(firstmsg));
+  sendForces(second, stepCount, std::move(secondmsg));
 }
 
 // function to calculate forces among atoms in a single list
@@ -158,7 +158,7 @@ inline void calcInternalForces(int stepCount, const CkIndex3D &first,
       fz, f, fr;
   vec3 firstpos, separation, force;
   double rSix, rTwelve;
-  vec3 *firstmsg = new vec3[firstLen];
+  ck::span<vec3> firstmsg(firstLen);
 
   ptpCutOffSqd = PTP_CUT_OFF * PTP_CUT_OFF;
   powTen = pow(10.0, -10);
@@ -182,7 +182,7 @@ inline void calcInternalForces(int stepCount, const CkIndex3D &first,
       }
     }
   }
-  sendForces(first, stepCount, ck::span<vec3>(firstmsg, firstLen));
+  sendForces(first, stepCount, std::move(firstmsg));
 }
 
 #endif
