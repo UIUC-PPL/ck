@@ -8,6 +8,10 @@ namespace ck {
 template <typename T, typename Enable = void>
 struct is_bytes : public PUP::as_bytes<T> {};
 
+// this is generally assumed in this codebase
+template <>
+struct is_bytes<void> : public std::false_type {};
+
 template <typename T>
 struct is_bytes_span : public std::false_type {};
 
