@@ -17,6 +17,10 @@ Entry Methods
 =============
 Entry methods are specified at the site of a call to :code:`send` or :code:`ck::make_callback`. They must be accessible members of chares whose arguments are de/serializable. Most attributes are supported through the :code:`CK_[ATTRIBUTE]_ENTRY` macro. For example, :code:`CK_THREADED_ENTRY(&foo:bar)` will define a threaded entry method. Note that these macros must be used at the top-level scope since they define specializations of class templates within the :code:`ck` namespace. NAME does not include a :code:`[reductiontarget]` attribute since its marshaled entry methods support multiple message-types by default.
 
+Pointer-to-offset Optimizations
+-------------------------------
+Instead of copying the data from the message into another buffer, e.g., as with a :code:`std::vector`, :code:`ck::span` containers can directly reference and retain (potentially shared) ownership of a message buffer. This process avoids receiver-side copies, and it is referred to as a pointer-to-offset optimization (i.e., it uses an offset within the message buffer as an array/pointer). Note, NAME only applies these optimizations to :code:`ck::span` containers of bytes-like types received via parameter marshalling.
+
 Proxies
 =======
 All singleton chares (and main chares, by extension) use :code:`ck::chare_proxy` proxies. All other chare-types have :code:`ck:collection_proxy`, :code:`ck::element_proxy`, and :code:`ck::section_proxy` proxies. All proxies have a :code:`send` method that broadcasts, multicast, or sends a message to the chares they encompass. Calls to :code:`send` can, optionally, include :code:`CkEntryOptions*` to specify message priorities, queuing strategies, etc. Non-element proxies have static :code:`create` methods to create new instances, while element proxies have an :code:`insert` routine that functions similarly. 
