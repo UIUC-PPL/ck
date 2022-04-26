@@ -17,6 +17,36 @@ Entry Methods
 =============
 Entry methods are specified at the site of a call to :code:`send` or :code:`ck::make_callback`. They must be accessible members of chares whose arguments are de/serializable. Most attributes are supported through the :code:`CK_[ATTRIBUTE]_ENTRY` macro. For example, :code:`CK_THREADED_ENTRY(&foo:bar)` will define a threaded entry method. Note that these macros must be used at the top-level scope since they define specializations of class templates within the :code:`ck` namespace. NAME does not include a :code:`[reductiontarget]` attribute since its marshaled entry methods support multiple message-types by default.
 
+Advanced Attribution
+--------------------
+Assigning an attribute to all specializations of a generic entry method is non-trivial, requiring use of SFINAE. Consider the following:
+
+.. code-block:: cpp
+
+    class main : public ck::chare<main, ck::main_chare> {
+    /* ... */
+    // an entry method that we want to make [inline]
+    template <typename A, typename B>
+    void receive(const A& a, const B& b) {
+        /* ... */
+    }
+    };
+    // required to pass instances via template parameters
+    template <typename A, typename B>
+    using receive_like_t = void (main::*)(const A&, const B&);
+    // ONE CAN EITHER MANUALLY WRITE THE SPECIALIZATION
+    namespace ck {
+    template <typename A, typename B, receive_like_t<A, B> RL>
+    struct is_inline<RL, std::enable_if_t<(RL == &main::receive<A, B>)>>
+        : public std::true_type {};
+    }
+    // OR USE THE CK_ENTRY_ASSIGN_ATTRIBUTE MACRO TO DO IT
+    CK_ENTRY_ASSIGN_ATTRIBUTE((RL, std::enable_if_t<(RL == &main::receive<A, B>)>),
+                            inline, typename A, typename B,
+                            receive_like_t<A, B> RL);
+    // EITHER WAY WILL GET THE JOB DONE
+    static_assert(ck::is_inline_v<&main::receive<int, int>>);
+
 Pointer-to-offset Optimizations
 -------------------------------
 Instead of copying the data from the message into another buffer, e.g., as with a :code:`std::vector`, :code:`ck::span` containers can directly reference and retain (potentially shared) ownership of a message buffer. This process avoids receiver-side copies, and it is referred to as a pointer-to-offset optimization (i.e., it uses an offset within the message buffer as an array/pointer). Note, NAME only applies these optimizations to :code:`ck::span` containers of bytes-like types received via parameter marshalling.

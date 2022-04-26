@@ -4,12 +4,12 @@
 #include <ck/traits.hpp>
 
 #define CK_ENTRY_ATTRIBUTE_DECLARE(name)        \
-  template <auto Entry>                         \
+  template <auto Entry, typename Enable = void> \
   struct is_##name : public std::false_type {}; \
   template <auto Entry>                         \
   constexpr auto is_##name##_v = is_##name<Entry>::value;
 
-#define CK_ENTRY_ATTRIBUTE_ASSIGN(name, class, ...)                  \
+#define CK_ENTRY_ASSIGN_ATTRIBUTE(name, class, ...)                  \
   namespace ck {                                                     \
   template <__VA_ARGS__>                                             \
   struct is_##class<CK_PP_UNPAREN(name)> : public std::true_type {}; \
@@ -17,17 +17,17 @@
 
 // can we condense this down to a one-liner?
 #define CK_EXCLUSIVE_ENTRY(...) \
-  CK_ENTRY_ATTRIBUTE_ASSIGN((__VA_ARGS__), exclusive)
+  CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), exclusive)
 #define CK_EXPEDITED_ENTRY(...) \
-  CK_ENTRY_ATTRIBUTE_ASSIGN((__VA_ARGS__), expedited)
+  CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), expedited)
 #define CK_IMMEDIATE_ENTRY(...) \
-  CK_ENTRY_ATTRIBUTE_ASSIGN((__VA_ARGS__), immediate)
-#define CK_INLINE_ENTRY(...) CK_ENTRY_ATTRIBUTE_ASSIGN((__VA_ARGS__), inline)
-#define CK_LOCAL_ENTRY(...) CK_ENTRY_ATTRIBUTE_ASSIGN((__VA_ARGS__), local)
-#define CK_NOKEEP_ENTRY(...) CK_ENTRY_ATTRIBUTE_ASSIGN((__VA_ARGS__), nokeep)
-#define CK_NOTRACE_ENTRY(...) CK_ENTRY_ATTRIBUTE_ASSIGN((__VA_ARGS__), notrace)
+  CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), immediate)
+#define CK_INLINE_ENTRY(...) CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), inline)
+#define CK_LOCAL_ENTRY(...) CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), local)
+#define CK_NOKEEP_ENTRY(...) CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), nokeep)
+#define CK_NOTRACE_ENTRY(...) CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), notrace)
 #define CK_THREADED_ENTRY(...) \
-  CK_ENTRY_ATTRIBUTE_ASSIGN((__VA_ARGS__), threaded)
+  CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), threaded)
 
 namespace ck {
 
