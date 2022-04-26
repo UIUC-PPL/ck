@@ -41,6 +41,23 @@ CK_ENTRY_ATTRIBUTE_DECLARE(threaded);
 
 // TODO (add appwork, memcritcal, etc. )
 
+template <typename... Ts>
+class attributes;
+
+template <>
+class attributes<> : public std::integral_constant<int, 0> {};
+
+template <typename T, typename... Ts>
+class attributes<T, Ts...>
+    : public std::integral_constant<int,
+                                    (T::value | attributes<Ts...>::value)> {};
+
+class Expedited : public std::integral_constant<int, CK_MSG_EXPEDITED> {};
+class Immediate : public std::integral_constant<int, CK_MSG_IMMEDIATE> {};
+class Inline : public std::integral_constant<int, CK_MSG_INLINE> {};
+class Local : public std::integral_constant<int, 0> {};
+class NoTrace : public std::integral_constant<int, CK_MSG_LB_NOTRACE> {};
+
 template <auto Entry>
 struct is_nokeep;
 
@@ -68,10 +85,10 @@ constexpr auto registration_flags_value(void) {
 template <auto Entry>
 constexpr auto message_flags_value(void) {
   auto flags = 0;
-  flags |= CK_MSG_INLINE * is_inline_v<Entry>;
-  flags |= CK_MSG_IMMEDIATE * is_immediate_v<Entry>;
-  flags |= CK_MSG_EXPEDITED * is_expedited_v<Entry>;
-  flags |= CK_MSG_LB_NOTRACE * is_notrace_v<Entry>;
+  flags |= Inline::value * is_inline_v<Entry>;
+  flags |= Immediate::value * is_immediate_v<Entry>;
+  flags |= Expedited::value * is_expedited_v<Entry>;
+  flags |= NoTrace::value * is_notrace_v<Entry>;
   return flags;
 }
 }  // namespace
@@ -84,37 +101,14 @@ constexpr auto message_flags_v = message_flags_value<Entry>();
 template <auto Entry>
 constexpr auto registration_flags_v = registration_flags_value<Entry>();
 
-template <typename... Ts>
-class attributes {};
+template <typename Attribute, typename T>
+constexpr auto contains_attribute_v = (bool)(Attribute::value& T::value);
 
-class Local {};
+template <typename T>
+constexpr auto contains_inline_v = contains_attribute_v<Inline, T>;
 
-class Inline {};
-
-template <typename Attribute, typename... Ts>
-class contains_attribute : public std::false_type {};
-
-template <typename Attribute, typename T, typename... Ts>
-class contains_attribute<Attribute, T, Ts...>
-    : public contains_attribute<Attribute, Ts...> {};
-
-template <typename Attribute, typename... Ts>
-class contains_attribute<Attribute, Attribute, Ts...> : public std::true_type {
-};
-
-template <typename Attribute, typename... Ts>
-class contains_attribute<Attribute, attributes<Ts...>>
-    : public contains_attribute<Attribute, Ts...> {};
-
-template <typename Attribute, typename... Ts>
-constexpr auto contains_attribute_v =
-    contains_attribute<Attribute, Ts...>::value;
-
-template <typename... Ts>
-constexpr auto contains_inline_v = contains_attribute_v<Inline, Ts...>;
-
-template <typename... Ts>
-constexpr auto contains_local_v = contains_attribute_v<Local, Ts...>;
+template <typename T>
+constexpr auto contains_local_v = contains_attribute_v<Local, T>;
 }  // namespace ck
 
 #endif

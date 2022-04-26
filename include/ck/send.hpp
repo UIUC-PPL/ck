@@ -15,25 +15,26 @@ inline void __trace_creation(envelope* env, int ep, CkEnvelopeType type,
 }
 
 // traces the start of an array element's execution
-inline void __trace_begin_array_execute(ArrayElement* elt, int ep,
+inline void __trace_begin_array_execute(ArrayElement* elt, int ep, int flags,
                                         std::size_t size) {
   envelope env;
   __trace_creation(&env, ep, ForArrayEltMsg, size);
   CmiObjId projID = (elt->ckGetArrayIndex()).getProjectionID();
   _TRACE_BEGIN_EXECUTE_DETAILED(CpvAccess(curPeEvent), ForArrayEltMsg, ep,
-                                CkMyPe(), 0, &projID, elt);
+                                CkMyPe(), size, &projID, elt);
 #if CMK_LBDB_ON
   auto id = elt->ckGetID().getElementID();
   auto& aid = elt->ckGetArrayID();
-  (aid.ckLocalBranch())->recordSend(id, size, CkMyPe());
+  (aid.ckLocalBranch())->recordSend(id, size, CkMyPe(), flags);
 #endif
 }
 
 // traces the start of an object's execution
 template <typename Kind>
-void __trace_begin_execute(Chare* obj, int ep, std::size_t size) {
+void __trace_begin_execute(Chare* obj, int ep, int flags, std::size_t size) {
   if constexpr (is_array_v<Kind>) {
-    __trace_begin_array_execute(static_cast<ArrayElement*>(obj), ep, size);
+    __trace_begin_array_execute(static_cast<ArrayElement*>(obj), ep, flags,
+                                size);
   } else {
     envelope env;
     __trace_creation(&env, ep, message_type<Kind>(), size);
@@ -50,6 +51,8 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
   constexpr auto is_local = is_local_v<Entry> || contains_local_v<Attributes>;
   constexpr auto is_inline =
       is_inline_v<Entry> || contains_inline_v<Attributes>;
+  // combine the registered and call-site attributes
+  constexpr auto flags = message_flags_v<Entry> | Attributes::value;
   // enforce that we can pass these arguments to the underlying EP
   static_assert(is_compatible_v<Entry, Args...>,
                 "arguments incompatible with entry method");
@@ -80,7 +83,7 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
         }
         // start tracing the object
         auto ep = get_entry_index<local_t, Entry>();
-        __trace_begin_execute<kind_t>(chare, ep, size);
+        __trace_begin_execute<kind_t>(chare, ep, flags, size);
       }
       // [local] EPs can return non-void values
       if constexpr (is_inline || std::is_same_v<void, result_t>) {
@@ -110,7 +113,7 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
       ((CkArrayMessage*)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
     }
 
-    proxy.send(msg, ep, message_flags_v<Entry>);
+    proxy.send(msg, ep, flags);
   }
 }
 
