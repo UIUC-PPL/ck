@@ -15,7 +15,18 @@ NAME supports all the chare-types through the :code:`ck::chare` class template. 
 
 Entry Methods
 =============
-Entry methods are specified at the site of a call to :code:`send` or :code:`ck::make_callback`. They must be accessible members of chares whose arguments are de/serializable. Most attributes are supported through the :code:`CK_[ATTRIBUTE]_ENTRY` macro. For example, :code:`CK_THREADED_ENTRY(&foo:bar)` will define a threaded entry method. Note that these macros must be used at the top-level scope since they define specializations of class templates within the :code:`ck` namespace. NAME does not include a :code:`[reductiontarget]` attribute since its marshaled entry methods support multiple message-types by default.
+Entry methods are specified at the site of a call to :code:`ck::send` or :code:`ck::make_callback`. They must be accessible members of chares whose arguments are de/serializable. Most attributes are supported through the :code:`CK_[ATTRIBUTE]_ENTRY` macro. For example, :code:`CK_THREADED_ENTRY(&foo:bar)` will define a threaded entry method. Note that these macros must be used at the top-level scope since they define specializations of class templates within the :code:`ck` namespace. NAME does not include a :code:`[reductiontarget]` attribute since its marshaled entry methods support multiple message-types by default.
+
+Call-site attribution
+---------------------
+One may assign certain attributes at the site of a :code:`ck::send` method. For example, one may try to execute an entry method inline via:
+
+.. code-block:: cpp
+    
+    // a single attribute may be passed directly
+    ck::send<&foo::bar, ck::Inline>(fooProxy, ...);
+    // multiple attributes must be wrapped in the `ck::attributes` helper
+    ck::send<&foo::bar, ck::attributes<ck::Inline, ...>>(fooProxy, ...); 
 
 Advanced Attribution
 --------------------
