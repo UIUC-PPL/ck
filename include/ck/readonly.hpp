@@ -8,15 +8,17 @@
 
 // generate a readonly impl-class for a variable
 // along with its global (reference) declaration
-#define CK_READONLY(type, name)               \
-  struct CK_READONLY_NAME(name) {             \
-    type value;                               \
-    void pup(PUP::er& p) { p | this->value; } \
-  };                                          \
-  type& name = (ck::readonly<CK_READONLY_NAME(name)>::__access()).value;
+#define CK_READONLY(type, name)                   \
+  struct CK_READONLY_NAME(name) {                 \
+    using T = CK_PP_UNPAREN(type);                \
+    PUP::detail::TemporaryObjectHolder<T> value;  \
+    void pup(PUP::er& p) { p | (this->value).t; } \
+  };                                              \
+  CK_PP_UNPAREN(type)& name =                     \
+      (ck::readonly<CK_READONLY_NAME(name)>::__access()).value.t;
 
 // forward declares a readonly variable
-#define CK_EXTERN_READONLY(type, name) extern type& name;
+#define CK_EXTERN_READONLY(type, name) extern CK_PP_UNPAREN(type) & name;
 
 namespace ck {
 

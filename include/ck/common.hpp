@@ -3,6 +3,15 @@
 
 #include <ck/span.hpp>
 
+// copied from:
+// https://www.mikeash.com/pyblog/
+// friday-qa-2015-03-20-preprocessor-abuse-and-optional-parentheses.html
+#define CK_PP_EXTRACT(...) CK_PP_EXTRACT __VA_ARGS__
+#define CK_PP_NOTHING_CK_PP_EXTRACT
+#define CK_PP_PASTE(x, ...) x##__VA_ARGS__
+#define CK_PP_EVALUATING_PASTE(x, ...) CK_PP_PASTE(x, __VA_ARGS__)
+#define CK_PP_UNPAREN(x) CK_PP_EVALUATING_PASTE(CK_PP_NOTHING_, CK_PP_EXTRACT x)
+
 namespace ck {
 template <typename T>
 void __dummy(const T&) {}
