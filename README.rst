@@ -53,7 +53,7 @@ Instead of copying the data from the message into another buffer, e.g., as with 
 
 Proxies
 =======
-All singleton chares (and main chares, by extension) use :code:`ck::chare_proxy` proxies. All other chare-types have :code:`ck:collection_proxy`, :code:`ck::element_proxy`, and :code:`ck::section_proxy` proxies. All proxies use the :code:`ck::send` function, which broadcasts, multicast, or sends a message to the chare(s) they encompass. Calls to :code:`ck::send` can, optionally, include :code:`CkEntryOptions*` to specify message priorities, queuing strategies, etc. Non-element proxies use the :code:`ck::create` function to create new instances. Chare-array element proxies can use :code:`ck::insert` function, which behaves similarly (although it takes a proxy as its first argument). 
+All singleton chares (and main chares, by extension) use :code:`ck::chare_proxy` proxies. All other chare-types have :code:`ck:collection_proxy`, :code:`ck::element_proxy`, and :code:`ck::section_proxy` proxies. All proxies use the :code:`ck::send` function, which broadcasts, multicast, or sends a message to the chare(s) they encompass. Calls to :code:`ck::send` can, optionally, include :code:`CkEntryOptions*` to specify message priorities, queuing strategies, etc. Non-element proxies use the :code:`ck::create` function to create new instances. Chare-array element proxies can use the :code:`ck::insert` function, which behaves similarly (although it takes a proxy as its first argument). 
 
 Callbacks
 =========
