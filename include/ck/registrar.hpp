@@ -30,7 +30,7 @@ template <class Base, typename... Args>
 struct constructor_registrar;
 
 // registers a chare's entry method with the rts
-template <class Base, auto Entry>
+template <class Base, auto Entry, typename Enable = void>
 struct method_registrar;
 
 // holds all the indices for a chare and its entry methods
@@ -98,7 +98,7 @@ struct index {
 template <typename Base>
 int index<Base>::__idx = -1;
 
-template <class Base, auto Entry>
+template <class Base, auto Entry, typename Enable>
 struct method_registrar {
   static int __idx;
 
@@ -167,8 +167,11 @@ struct method_registrar {
 };
 
 template <class Base, auto Entry>
-int method_registrar<Base, Entry>::__idx = index<Base>::template __append<
-    &ck::index<Base>::template method_index<Entry>>();
+struct method_registrar<Base, Entry, std::enable_if_t<is_local_v<Entry>>> {};
+
+template <class Base, auto Entry, typename Enable>
+int method_registrar<Base, Entry, Enable>::__idx = index<
+    Base>::template __append<&ck::index<Base>::template method_index<Entry>>();
 
 template <class Base, typename... Args>
 struct constructor_registrar {

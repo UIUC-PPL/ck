@@ -7,6 +7,7 @@
 #include <ck/pupable.hpp>
 #include <ck/readonly.hpp>
 #include <ck/reduction.hpp>
+#include <ck/send.hpp>
 
 namespace ck {
 template <typename Base>

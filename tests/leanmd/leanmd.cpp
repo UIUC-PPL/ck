@@ -55,7 +55,7 @@ Main::Main(CkArgMsg* m) {
 void Main::computesCreated(void) {
   computeArray.doneInserting();
   CkPrintf("Starting simulation .... \n\n");
-  cellArray.send<&Cell::progress>();
+  ck::send<&Cell::progress>(cellArray);
 }
 
 void Main::done(void) {
@@ -167,8 +167,8 @@ void Cell::sendPositions(void) {
                  [](const Particle& particle) { return particle.pos; });
 
   for (int num = 0; num < inbrs; num++) {
-    computeArray[computesList[num]].send<&Compute::calculateForces>(
-        stepCount, thisIndex, positions);
+    ck::send<&Compute::calculateForces>(computeArray[computesList[num]],
+                                        stepCount, thisIndex, positions);
   }
 }
 
@@ -190,9 +190,11 @@ void Cell::migrateParticles(void) {
     auto x1 = num / (NBRS_Y * NBRS_Z) - NBRS_X / 2;
     auto y1 = (num % (NBRS_Y * NBRS_Z)) / NBRS_Z - NBRS_Y / 2;
     auto z1 = num % NBRS_Z - NBRS_Z / 2;
-    cellArray[CkArrayIndex3D(WRAP_X(thisIndex.x + x1), WRAP_Y(thisIndex.y + y1),
-                             WRAP_Z(thisIndex.z + z1))]
-        .send<&Cell::receiveParticles>(this->stepCount, outgoing[num]);
+    ck::send<&Cell::receiveParticles>(
+        cellArray[CkArrayIndex3D(WRAP_X(thisIndex.x + x1),
+                                 WRAP_Y(thisIndex.y + y1),
+                                 WRAP_Z(thisIndex.z + z1))],
+        this->stepCount, outgoing[num]);
   }
 }
 
@@ -388,7 +390,8 @@ void Compute::calculateForces(int stepCount, const CkIndex3D& index,
 
 void sendForces(const CkIndex3D& index, int stepCount,
                 ck::span<vec3>&& positions) {
-  cellArray[index].send<&Cell::receiveForces>(stepCount, std::move(positions));
+  ck::send<&Cell::receiveForces>(cellArray[index], stepCount,
+                                 std::move(positions));
 }
 
 void Cell::pup(PUP::er& p) {
