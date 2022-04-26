@@ -19,4 +19,5 @@ leanmd.out: leanmd/*.*pp
 	charmc $(OPTS) -Ileanmd/ leanmd/leanmd.cpp -o leanmd.out
 
 clean:
+	rm -f *.log.gz *.out.projrc *.out.sts
 	rm -f charmrun fib.out hello.out hierarchical_hello.out histogram.out leanmd.out

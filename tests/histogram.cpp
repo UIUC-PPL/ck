@@ -32,17 +32,17 @@ Main::Main(int argc, char **argv) {
   }
 
   // Create Histogram chare array
-  histogramProxy = ck::array_proxy<Histogram>::create(nElementsPerChare,
-                                                      maxElementValue, nChares);
+  histogramProxy = ck::create<ck::array_proxy<Histogram>>(
+      nElementsPerChare, maxElementValue, nChares);
   // Create HistogramMerger group
-  histogramMergerProxy = ck::group_proxy<HistogramMerger>::create(nBins);
+  histogramMergerProxy = ck::create<ck::group_proxy<HistogramMerger>>(nBins);
   // set readonly
   mainProxy = thisProxy;
 
   // Tell Histogram chare array elements to register themselves with their
   // groups. This is done so that each local branch of the HistogramMerger group
   // knows the number of chares from which to expect submissions.
-  histogramProxy.send<&Histogram::registerWithMerger>();
+  ck::send<&Histogram::registerWithMerger>(histogramProxy);
 }
 
 void Main::charesRegistered(void) {
@@ -63,7 +63,7 @@ void Main::charesRegistered(void) {
   // Broadcast these bin keys to the Histogram chare array. This will cause
   // each chare to iterate through its set of values and count the number of
   // values that falls into the range implied by each bin.
-  histogramProxy.send<&Histogram::count>(bins);
+  ck::send<&Histogram::count>(histogramProxy, bins);
 }
 
 // This entry method receives the results of the histogramming operation
@@ -104,8 +104,8 @@ void Histogram::count(ck::span<int> &&binCounts) {
   }
 
   // Submit partial results to HistogramMerger
-  histogramMergerProxy.ckLocalBranch()->submitCounts(myCounts.data(),
-                                                     myCounts.size());
+  ck::send<&HistogramMerger::submitCounts>(histogramMergerProxy[CkMyPe()],
+                                           myCounts.data(), myCounts.size());
 }
 
 void Histogram::registerWithMerger(void) {

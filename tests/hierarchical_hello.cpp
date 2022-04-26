@@ -93,12 +93,12 @@ class main : public ck::chare<main, ck::main_chare> {
  public:
   main(int argc, char** argv) : phase_(0) {
     auto nodedone = ck::make_callback<&main::on_nodegroup_done>(thisProxy);
-    auto nodegroup = ck::nodegroup_proxy<hello_nodegroup>::create(nodedone);
-    auto group = ck::group_proxy<hello_group>::create(nodegroup);
+    auto nodegroup = ck::create<ck::nodegroup_proxy<hello_nodegroup>>(nodedone);
+    auto group = ck::create<ck::group_proxy<hello_group>>(nodegroup);
     auto factor = (argc >= 2) ? atoi(argv[1]) : 4;
     this->nPhases_ = (argc >= 3) ? atoi(argv[2]) : 2;
     CkEnforceMsg(factor > 0, "overdecomposition factor must be non-zero");
-    ck::array_proxy<hello_array>::create(group, factor * CkNumPes());
+    ck::create<ck::array_proxy<hello_array>>(group, factor * CkNumPes());
   }
 
   void on_nodegroup_done(void) {

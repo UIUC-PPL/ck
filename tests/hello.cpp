@@ -50,18 +50,7 @@ class hello : public ck::extends<hello, greeter> {
  public:
   hello(const ck::callback<std::string>& reply_) : reply(reply_), nRecvd(0) {}
 
-  void say_hello_msg(CkDataMsg* msg) {
-    this->greet(*((int*)msg->getData()));
-
-    auto mine = thisIndex;
-    auto right = mine + 2;
-
-    if (right < nTotal) {
-      thisProxy[right].send<&hello::say_hello_msg>(msg);
-    } else {
-      delete msg;
-    }
-  }
+  void say_hello_msg(CkDataMsg* msg);
 
   virtual void greet(int data) override {
     CkPrintf("%d> hello with data %d!\n", thisIndex, data);
@@ -72,6 +61,8 @@ class hello : public ck::extends<hello, greeter> {
     CkPrintf("%d> hello to %s!\n", thisIndex, obj->name().c_str());
     this->tally();
   }
+
+  int get_index(void) const { return thisIndex; }
 
  private:
   void tally(void) {
@@ -88,6 +79,19 @@ class hello : public ck::extends<hello, greeter> {
 // calls with perfect forwarding when its available
 CK_INLINE_ENTRY(&hello::say_hello_msg);
 
+void hello::say_hello_msg(CkDataMsg* msg) {
+  this->greet(*((int*)msg->getData()));
+
+  auto mine = thisIndex;
+  auto right = mine + 2;
+
+  if (right < nTotal) {
+    ck::send<&hello::say_hello_msg>(thisProxy[right], msg);
+  } else {
+    delete msg;
+  }
+}
+
 class main : public ck::chare<main, ck::main_chare> {
  public:
   main(int argc, char** argv) {
@@ -96,14 +100,14 @@ class main : public ck::chare<main, ck::main_chare> {
     nTotal = 4 * CkNumPes();
     ck::constructor_options<hello> opts(0, nTotal, 2);
     auto reply = ck::make_callback<&main::reply>(thisProxy);
-    auto proxy = ck::array_proxy<hello>::create(reply, opts);
+    auto proxy = ck::create<ck::array_proxy<hello>>(reply, opts);
     // broadcast via parameter marshaling
-    proxy.send<&greeter::greet>(data * 2 + 12);
-    proxy.send<&greeter::greet_greetable>(
-        std::unique_ptr<greetable>(new greetable_person("bob")));
+    ck::send<&greeter::greet>(proxy, data * 2 + 12);
+    ck::send<&greeter::greet_greetable>(
+        proxy, std::unique_ptr<greetable>(new greetable_person("bob")));
     // send via conventional messaging
-    proxy[0].send<&hello::say_hello_msg>(
-        CkDataMsg::buildNew(sizeof(int), &data));
+    ck::send<&hello::say_hello_msg>(proxy[0],
+                                    CkDataMsg::buildNew(sizeof(int), &data));
   }
 
   void reply(std::string&& result) {
@@ -111,5 +115,7 @@ class main : public ck::chare<main, ck::main_chare> {
     CkExit();
   }
 };
+
+static_assert(!ck::is_nokeep_v<&hello::say_hello_msg>);
 
 extern "C" void CkRegisterMainModule(void) { ck::__register(); }

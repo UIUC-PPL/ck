@@ -35,6 +35,8 @@ class Main : public ck::chare<Main, ck::main_chare> {
   void receiveHistogram(ck::span<int>&&);
 };
 
+CK_LOCAL_ENTRY(&HistogramMerger::submitCounts);
+
 CK_READONLY(ck::chare_proxy<Main>, mainProxy);
 CK_READONLY(ck::array_proxy<Histogram>, histogramProxy);
 CK_READONLY(ck::group_proxy<HistogramMerger>, histogramMergerProxy);

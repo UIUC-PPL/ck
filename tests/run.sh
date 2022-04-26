@@ -17,7 +17,9 @@ if [ -z "$basedir" ] || [ ! -d "$basedir" ]; then
 else
     set +u
     # source machine options to learn build configuration
-    source "$basedir/include/conv-mach-opt.sh"
+    pushd "$basedir/include/"
+    source "conv-mach-opt.sh"
+    popd
     set -u
 fi
 # detect the number of processors to run with

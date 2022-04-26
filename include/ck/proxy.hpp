@@ -7,6 +7,7 @@
 
 #define CPROXY_MEMBERS                               \
   using Index = index_of_t<Kind>;                    \
+  using kind_t = Kind;                               \
   using local_t = Base;                              \
   using index_t = index<Base>;                       \
   using proxy_t = collection_proxy<Base, Kind>;      \
@@ -15,36 +16,11 @@
   static constexpr auto is_array = is_array_v<Kind>; \
   static constexpr auto is_group = std::is_same_v<group, Kind>;
 
-#define CPROXY_SEND_CHECK                        \
-  static_assert(is_compatible_v<Entry, Args...>, \
-                "arguments incompatible with entry method")
-
 namespace ck {
 
 // creates a proxy with the given arguments
 template <typename Proxy, typename... Args>
 struct creator;
-
-namespace {
-template <auto Entry, typename Proxy, typename... Args>
-bool __try_inline_or_local(const Proxy *proxy, Args... args) {
-  constexpr auto is_inline = is_inline_v<Entry>;
-  if constexpr (is_inline || is_local_v<Entry>) {
-    auto *local = proxy->ckLocal();
-    if (local == nullptr) {
-      CkEnforceMsg(is_inline, "local chare unavailable");
-      return false;
-    } else {
-      CkCallstackPush(static_cast<Chare *>(local));
-      (local->*Entry)(std::forward<Args>(args)...);
-      CkCallstackPop(static_cast<Chare *>(local));
-      return true;
-    }
-  } else {
-    return false;
-  }
-}
-}  // namespace
 
 // proxy for singleton chares
 template <typename Base>
@@ -67,18 +43,8 @@ struct chare_proxy : public CProxy_Chare {
         std::forward<Args>(args)...);
   }
 
-  template <auto Entry, typename... Args>
-  void send(Args &&...args) const {
-    CPROXY_SEND_CHECK;
-
-    if (__try_inline_or_local<Entry>(this, args...)) {
-      return;
-    }
-
-    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
-    auto ep = get_entry_index<Base, Entry>();
-    auto opts = 0;
-    CkSendMsg(ep, msg, &ckGetChareID(), opts);
+  void send(CkMessage *msg, int ep, int flags) const {
+    CkSendMsg(ep, msg, &(this->ckGetChareID()), flags);
   }
 
   auto ckLocal(void) const {
@@ -95,6 +61,19 @@ struct element_proxy;
 
 template <typename Base, typename Kind = kind_of_t<Base>>
 struct section_proxy;
+
+template <typename Kind>
+constexpr CkEnvelopeType message_type(bool is_elementlike) {
+  if (is_array_v<Kind>) {
+    return is_elementlike ? ForArrayEltMsg : ArrayBcastMsg;
+  } else if (std::is_same_v<group, Kind>) {
+    return is_elementlike ? ForBocMsg : BocBcastMsg;
+  } else if (std::is_same_v<nodegroup, Kind>) {
+    return ForNodeBocMsg;
+  } else {
+    return is_elementlike ? ForChareMsg : LAST_CK_ENVELOPE_TYPE;
+  }
+}
 
 namespace {
 
@@ -146,32 +125,6 @@ auto __index(const Proxy *proxy, const Index &index) {
                      proxy->ckDelegatedPtr());
   }
 }
-
-template <typename Base, auto Entry, typename Send, typename... Args>
-struct array_sender {
-  CPROXY_SEND_CHECK;
-
-  void operator()(CkEntryOptions *opts, const Send &send,
-                  Args &&...args) const {
-    auto *msg = ck::pack(opts, std::forward<Args>(args)...);
-    auto ep = get_entry_index<Base, Entry>();
-    UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
-    ((CkArrayMessage *)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
-    send((CkArrayMessage *)msg, ep, message_flags_v<Entry>);
-  }
-};
-
-template <typename Base, auto Entry, typename Send, typename... Args>
-struct grouplike_sender {
-  CPROXY_SEND_CHECK;
-
-  void operator()(CkEntryOptions *opts, const Send &send,
-                  Args &&...args) const {
-    auto *msg = ck::pack(opts, std::forward<Args>(args)...);
-    auto ep = get_entry_index<Base, Entry>();
-    send((CkMessage *)msg, ep, message_flags_v<Entry>);
-  }
-};
 }  // namespace
 
 template <typename Base, typename Kind>
@@ -192,28 +145,19 @@ struct section_proxy : public section_proxy_of_t<Kind> {
     return section_t(std::forward<Args>(args)...);
   }
 
-  template <auto Entry, typename... Args>
-  void send(Args &&...args) const {
+  void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {
-      __send<Base, Entry, array_sender>(
-          [&](CkArrayMessage *msg, int ep, int flags) {
-            const_cast<section_t *>(this)->ckSend(msg, ep, flags);
-          },
-          std::forward<Args>(args)...);
+      const_cast<section_t *>(this)->ckSend((CkArrayMessage *)msg, ep, flags);
     } else {
       constexpr auto &send_fn =
           is_group ? CkSendMsgBranchMulti : CkSendMsgNodeBranchMulti;
-      __send<Base, Entry, grouplike_sender>(
-          [&](CkMessage *msg, int ep, int flags) {
-            for (auto i = 0; i < this->ckGetNumSections(); i++) {
-              auto *copy = (i < (this->ckGetNumSections() - 1))
-                               ? CkCopyMsg((void **)&msg)
-                               : msg;
-              send_fn(ep, copy, this->ckGetGroupIDn(i),
-                      this->ckGetNumElements(i), this->ckGetElements(i), flags);
-            }
-          },
-          std::forward<Args>(args)...);
+      for (auto i = 0; i < this->ckGetNumSections(); i++) {
+        auto *copy = (i < (this->ckGetNumSections() - 1))
+                         ? CkCopyMsg((void **)&msg)
+                         : msg;
+        send_fn(ep, copy, this->ckGetGroupIDn(i), this->ckGetNumElements(i),
+                this->ckGetElements(i), flags);
+      }
     }
   }
 
@@ -250,26 +194,13 @@ struct element_proxy : public element_proxy_of_t<Kind> {
   template <typename... Args>
   element_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
 
-  template <auto Entry, typename... Args>
-  void send(Args &&...args) const {
-    if (__try_inline_or_local<Entry>(this, args...)) {
-      return;
-    }
-
+  void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {
-      __send<Base, Entry, array_sender>(
-          [&](CkArrayMessage *msg, int ep, int flags) {
-            this->ckSend(msg, ep, flags);
-          },
-          std::forward<Args>(args)...);
+      this->ckSend((CkArrayMessage *)msg, ep, flags);
     } else {
       constexpr auto &send_fn =
           is_group ? CkSendMsgBranch : CkSendMsgNodeBranch;
-      __send<Base, Entry, grouplike_sender>(
-          [&](CkMessage *msg, int ep, int flags) {
-            send_fn(ep, msg, this->ckGetGroupPe(), this->ckGetGroupID(), flags);
-          },
-          std::forward<Args>(args)...);
+      send_fn(ep, msg, this->ckGetGroupPe(), this->ckGetGroupID(), flags);
     }
   }
 
@@ -284,7 +215,20 @@ struct element_proxy : public element_proxy_of_t<Kind> {
   }
 
   auto ckLocal(void) const {
-    return reinterpret_cast<local_t *>(parent_t::ckLocal());
+    if constexpr (is_array) {
+      return reinterpret_cast<local_t *>(parent_t::ckLocal());
+    } else {
+      auto pe = this->ckGetGroupPe();
+      auto node = is_group ? CkNodeOf(pe) : pe;
+      CkEnforceMsg(node == CkMyNode(), "non-local element");
+      if constexpr (is_group) {
+        auto *obj = CkLocalBranchOther(this->ckGetGroupID(), CkRankOf(pe));
+        return reinterpret_cast<local_t *>(obj);
+      } else {
+        return reinterpret_cast<local_t *>(
+            CkLocalNodeBranch(this->ckGetGroupID()));
+      }
+    }
   }
 };
 
@@ -307,22 +251,13 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
         std::forward<Args>(args)...);
   }
 
-  template <auto Entry, typename... Args>
-  void send(Args &&...args) const {
+  void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {
-      __send<Base, Entry, array_sender>(
-          [&](CkArrayMessage *msg, int ep, int flags) {
-            this->ckBroadcast(msg, ep, flags);
-          },
-          std::forward<Args>(args)...);
+      this->ckBroadcast((CkArrayMessage *)msg, ep, flags);
     } else {
       constexpr auto &send_fn =
           is_group ? CkBroadcastMsgBranch : CkBroadcastMsgNodeBranch;
-      __send<Base, Entry, grouplike_sender>(
-          [&](CkMessage *msg, int ep, int flags) {
-            send_fn(ep, msg, this->ckGetGroupID(), flags);
-          },
-          std::forward<Args>(args)...);
+      send_fn(ep, msg, this->ckGetGroupID(), flags);
     }
   }
 
@@ -373,6 +308,18 @@ struct instance_proxy_of<
 
 template <typename T, typename Kind = kind_of_t<T>>
 using instance_proxy_of_t = typename instance_proxy_of<T, Kind>::type;
+
+template <typename T>
+struct is_elementlike : public std::false_type {};
+
+template <typename Base>
+struct is_elementlike<chare_proxy<Base>> : public std::true_type {};
+
+template <typename Base, typename Kind>
+struct is_elementlike<element_proxy<Base, Kind>> : public std::true_type {};
+
+template <typename T>
+constexpr auto is_elementlike_v = is_elementlike<T>::value;
 
 namespace {
 template <typename Base, typename Index, typename Options, typename... Args>
