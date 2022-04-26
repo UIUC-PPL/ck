@@ -2,6 +2,51 @@
 
 CK_READONLY(int, nTotal);
 
+namespace ck {
+namespace {
+template <auto Entry, typename Attributes, typename Proxy, typename... Args>
+auto __send(const Proxy& proxy, const CkEntryOptions* opts,
+            const Args&... args) {
+  auto* tag = contains_inline_v<Attributes> ? "inline" : "";
+  CkPrintf("called with: %p %s\n", opts, tag);
+  return proxy.template send<Entry>(std::forward<const Args&>(args)...);
+}
+
+template <auto Entry, typename Attributes, typename Proxy, std::size_t... I0s,
+          std::size_t... I1s, typename... Args>
+auto __send(const Proxy& proxy,
+            std::index_sequence<I0s...>,    // first args
+            std::index_sequence<I1s...>,    // last args
+            std::tuple<const Args&...> args /* all args */
+) {
+  return __send<Entry, Attributes>(proxy, std::get<I0s>(std::move(args))...,
+                                   std::get<I1s>(std::move(args))...);
+}
+
+template <typename T>
+constexpr auto is_entry_options_v =
+    std::is_same_v<CkEntryOptions*, std::remove_cv_t<std::decay_t<T>>>;
+}  // namespace
+
+template <auto Entry, typename Attributes, typename Proxy, typename... Args>
+auto send(const Proxy& proxy, const Args&... args) {
+  // check if the last argument is an entry options pointer
+  if constexpr (is_entry_options_v<get_last_t<Args...>>) {
+    return __send<Entry, Attributes>(
+        proxy, std::index_sequence<sizeof...(args) - 1>{},  // put last first
+        std::make_index_sequence<sizeof...(args) - 1>{},    // put first last
+        std::forward_as_tuple(args...));                    // bundled args
+  } else {
+    return __send<Entry, Attributes>(proxy, nullptr, args...);
+  }
+}
+
+template <auto Entry, typename Proxy, typename... Args>
+auto send(const Proxy& proxy, const Args&... args) {
+  return send<Entry, ck::attributes<>>(proxy, args...);
+}
+}  // namespace ck
+
 template <typename T>
 T sum(T&& lhs, T&& rhs) {
   return lhs + ", " + rhs;
@@ -98,7 +143,10 @@ class main : public ck::chare<main, ck::main_chare> {
     auto reply = ck::make_callback<&main::reply>(thisProxy);
     auto proxy = ck::array_proxy<hello>::create(reply, opts);
     // broadcast via parameter marshaling
-    proxy.send<&greeter::greet>(data * 2 + 12);
+    {
+      CkEntryOptions opts;
+      ck::send<&greeter::greet, ck::Inline>(proxy, data * 2 + 12, &opts);
+    }
     proxy.send<&greeter::greet_greetable>(
         std::unique_ptr<greetable>(new greetable_person("bob")));
     // send via conventional messaging

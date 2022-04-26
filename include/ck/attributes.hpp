@@ -83,6 +83,38 @@ constexpr auto message_flags_v = message_flags_value<Entry>();
 // returns an entry method's registration flags (given to CkRegisterEp)
 template <auto Entry>
 constexpr auto registration_flags_v = registration_flags_value<Entry>();
+
+template <typename... Ts>
+class attributes {};
+
+class Local {};
+
+class Inline {};
+
+template <typename Attribute, typename... Ts>
+class contains_attribute : public std::false_type {};
+
+template <typename Attribute, typename T, typename... Ts>
+class contains_attribute<Attribute, T, Ts...>
+    : public contains_attribute<Attribute, Ts...> {};
+
+template <typename Attribute, typename... Ts>
+class contains_attribute<Attribute, Attribute, Ts...> : public std::true_type {
+};
+
+template <typename Attribute, typename... Ts>
+class contains_attribute<Attribute, attributes<Ts...>>
+    : public contains_attribute<Attribute, Ts...> {};
+
+template <typename Attribute, typename... Ts>
+constexpr auto contains_attribute_v =
+    contains_attribute<Attribute, Ts...>::value;
+
+template <typename... Ts>
+constexpr auto contains_inline_v = contains_attribute_v<Inline, Ts...>;
+
+template <typename... Ts>
+constexpr auto contains_local_v = contains_attribute_v<Local, Ts...>;
 }  // namespace ck
 
 #endif
