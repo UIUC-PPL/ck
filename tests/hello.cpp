@@ -7,9 +7,43 @@ namespace {
 template <auto Entry, typename Attributes, typename Proxy, typename... Args>
 auto __send(const Proxy& proxy, const CkEntryOptions* opts,
             const Args&... args) {
-  auto* tag = contains_inline_v<Attributes> ? "inline" : "";
-  CkPrintf("called with: %p %s\n", opts, tag);
-  return proxy.template send<Entry>(std::forward<const Args&>(args)...);
+  using local_t = typename Proxy::local_t;
+  constexpr auto is_local = is_local_v<Entry> || contains_local_v<Attributes>;
+  constexpr auto is_inline =
+      is_inline_v<Entry> || contains_inline_v<Attributes>;
+
+  if constexpr (is_local || is_inline) {
+    auto* local = proxy.ckLocal();
+    if (local == nullptr) {
+      CkAbort("local chare unavailable");
+    } else {
+      using result_t =
+          decltype((local->*Entry)(std::forward<const Args&>(args)...));
+      if constexpr (std::is_same_v<void, result_t>) {
+        CkCallstackPush(static_cast<Chare*>(local));
+        (local->*Entry)(std::forward<const Args&>(args)...);
+        CkCallstackPop(static_cast<Chare*>(local));
+      } else {
+        CkCallstackPush(static_cast<Chare*>(local));
+        auto res = (local->*Entry)(std::forward<const Args&>(args)...);
+        CkCallstackPop(static_cast<Chare*>(local));
+        return res;
+      }
+    }
+  }
+
+  if constexpr (!is_local) {
+    auto* msg = ck::pack(const_cast<CkEntryOptions*>(opts),
+                         std::forward<const Args&>(args)...);
+    auto ep = get_entry_index<local_t, Entry>();
+
+    if constexpr (Proxy::is_array) {
+      UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
+      ((CkArrayMessage*)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
+    }
+
+    proxy.send(msg, ep, message_flags_v<Entry>);
+  }
 }
 
 template <auto Entry, typename Attributes, typename Proxy, std::size_t... I0s,
@@ -95,18 +129,7 @@ class hello : public ck::extends<hello, greeter> {
  public:
   hello(const ck::callback<std::string>& reply_) : reply(reply_), nRecvd(0) {}
 
-  void say_hello_msg(CkDataMsg* msg) {
-    this->greet(*((int*)msg->getData()));
-
-    auto mine = thisIndex;
-    auto right = mine + 2;
-
-    if (right < nTotal) {
-      thisProxy[right].send<&hello::say_hello_msg>(msg);
-    } else {
-      delete msg;
-    }
-  }
+  void say_hello_msg(CkDataMsg* msg);
 
   virtual void greet(int data) override {
     CkPrintf("%d> hello with data %d!\n", thisIndex, data);
@@ -117,6 +140,8 @@ class hello : public ck::extends<hello, greeter> {
     CkPrintf("%d> hello to %s!\n", thisIndex, obj->name().c_str());
     this->tally();
   }
+
+  int get_index(void) const { return thisIndex; }
 
  private:
   void tally(void) {
@@ -133,6 +158,19 @@ class hello : public ck::extends<hello, greeter> {
 // calls with perfect forwarding when its available
 CK_INLINE_ENTRY(&hello::say_hello_msg);
 
+void hello::say_hello_msg(CkDataMsg* msg) {
+  this->greet(*((int*)msg->getData()));
+
+  auto mine = thisIndex;
+  auto right = mine + 2;
+
+  if (right < nTotal) {
+    ck::send<&hello::say_hello_msg>(thisProxy[right], msg);
+  } else {
+    delete msg;
+  }
+}
+
 class main : public ck::chare<main, ck::main_chare> {
  public:
   main(int argc, char** argv) {
@@ -143,15 +181,13 @@ class main : public ck::chare<main, ck::main_chare> {
     auto reply = ck::make_callback<&main::reply>(thisProxy);
     auto proxy = ck::array_proxy<hello>::create(reply, opts);
     // broadcast via parameter marshaling
-    {
-      CkEntryOptions opts;
-      ck::send<&greeter::greet, ck::Inline>(proxy, data * 2 + 12, &opts);
-    }
+    proxy.send<&greeter::greet>(data * 2 + 12);
     proxy.send<&greeter::greet_greetable>(
         std::unique_ptr<greetable>(new greetable_person("bob")));
     // send via conventional messaging
-    proxy[0].send<&hello::say_hello_msg>(
-        CkDataMsg::buildNew(sizeof(int), &data));
+    auto idx = ck::send<&hello::get_index, ck::Local>(proxy[0]);
+    ck::send<&hello::say_hello_msg, ck::Inline>(
+        proxy[idx], CkDataMsg::buildNew(sizeof(int), &data));
   }
 
   void reply(std::string&& result) {

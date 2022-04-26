@@ -250,26 +250,13 @@ struct element_proxy : public element_proxy_of_t<Kind> {
   template <typename... Args>
   element_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
 
-  template <auto Entry, typename... Args>
-  void send(Args &&...args) const {
-    if (__try_inline_or_local<Entry>(this, args...)) {
-      return;
-    }
-
+  void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {
-      __send<Base, Entry, array_sender>(
-          [&](CkArrayMessage *msg, int ep, int flags) {
-            this->ckSend(msg, ep, flags);
-          },
-          std::forward<Args>(args)...);
+      this->ckSend((CkArrayMessage *)msg, ep, flags);
     } else {
       constexpr auto &send_fn =
           is_group ? CkSendMsgBranch : CkSendMsgNodeBranch;
-      __send<Base, Entry, grouplike_sender>(
-          [&](CkMessage *msg, int ep, int flags) {
-            send_fn(ep, msg, this->ckGetGroupPe(), this->ckGetGroupID(), flags);
-          },
-          std::forward<Args>(args)...);
+      send_fn(ep, msg, this->ckGetGroupPe(), this->ckGetGroupID(), flags);
     }
   }
 
