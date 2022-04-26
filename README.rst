@@ -32,3 +32,7 @@ Users can create callbacks to entry methods using the :code:`ck::make_callback` 
 Reducers
 ========
 One can register custom reducer functions (i.e., those that combine contributions during reductions) using the :code:`ck::reducer` function. Generally, valid reducers are of the form :code:`T(*)(T,T)`, although their arguments may be :code:`const` or r-value references. Note that we consider all reducers over :code:`PUPBytes` types as "streamable." We provide a helper function for forming contributions, :code:`pack_contribution` (name pending).
+
+Readonly Variables
+==================
+NAME supports defining readonly variables via the :code:`CK_READONLY` macro. One can forward declare readonly variables using the :code:`CK_EXTERN_READONLY` macro. Note that when the types of readonly variables contain commas, they must be enclosed within parenthesis. For example, :code:`CK_READONLY((std::map<int, int>), kReadonlyMap)` is a correct declaration. 
