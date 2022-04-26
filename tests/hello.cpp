@@ -4,10 +4,27 @@ CK_READONLY(int, nTotal);
 
 namespace ck {
 namespace {
+void __trace_begin_array_execute(ArrayElement* elt, int ep, int size) {
+  envelope env;
+  env.setTotalsize(size);
+  env.setMsgtype(ForArrayEltMsg);
+  _TRACE_CREATION_DETAILED(&env, ep);
+  _TRACE_CREATION_DONE(1);
+  CmiObjId projID = (elt->ckGetArrayIndex()).getProjectionID();
+  _TRACE_BEGIN_EXECUTE_DETAILED(CpvAccess(curPeEvent), ForArrayEltMsg, ep,
+                                CkMyPe(), 0, &projID, elt);
+#if CMK_LBDB_ON
+  auto id = elt->ckGetID().getElementID();
+  auto& aid = elt->ckGetArrayID();
+  (aid.ckLocalBranch())->recordSend(id, size, CkMyPe());
+#endif
+}
+
 template <auto Entry, typename Attributes, typename Proxy, typename... Args>
 auto __send(const Proxy& proxy, const CkEntryOptions* opts,
             const Args&... args) {
   using local_t = typename Proxy::local_t;
+  constexpr auto is_array = Proxy::is_array;
   constexpr auto is_local = is_local_v<Entry> || contains_local_v<Attributes>;
   constexpr auto is_inline =
       is_inline_v<Entry> || contains_inline_v<Attributes>;
@@ -15,18 +32,44 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
   if constexpr (is_local || is_inline) {
     auto* local = proxy.ckLocal();
     if (local == nullptr) {
-      CkAbort("local chare unavailable");
+      if constexpr (is_local) {
+        CkAbort("local chare unavailable");
+      }
     } else {
       using result_t =
           decltype((local->*Entry)(std::forward<const Args&>(args)...));
-      if constexpr (std::is_same_v<void, result_t>) {
+      if constexpr (is_inline) {
+        std::size_t size;
+        if constexpr (is_message_v<Args...>) {
+          size = UsrToEnv(args...)->getTotalsize();
+        } else {
+          auto pack = std::forward_as_tuple(const_cast<Args&>(args)...);
+          size = sizeof(CkMarshallMsg) + PUP::size(pack);
+        }
+        auto ep = get_entry_index<local_t, Entry>();
+        if constexpr (is_array) {
+          __trace_begin_array_execute(local, ep, size);
+        } else {
+          envelope env;
+          env.setEpIdx(ep);
+          env.setTotalsize(size);
+          // TODO ( add other fields here? )
+          _TRACE_CREATION_DETAILED(&env, ep);
+          _TRACE_CREATION_DONE(1);
+          _TRACE_BEGIN_EXECUTE(&env, local);
+        }
+      }
+
+      if constexpr (is_inline || std::is_same_v<void, result_t>) {
         CkCallstackPush(static_cast<Chare*>(local));
         (local->*Entry)(std::forward<const Args&>(args)...);
         CkCallstackPop(static_cast<Chare*>(local));
+        _TRACE_END_EXECUTE();
       } else {
         CkCallstackPush(static_cast<Chare*>(local));
         auto res = (local->*Entry)(std::forward<const Args&>(args)...);
         CkCallstackPop(static_cast<Chare*>(local));
+        _TRACE_END_EXECUTE();
         return res;
       }
     }
@@ -37,7 +80,7 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
                          std::forward<const Args&>(args)...);
     auto ep = get_entry_index<local_t, Entry>();
 
-    if constexpr (Proxy::is_array) {
+    if constexpr (is_array) {
       UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
       ((CkArrayMessage*)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
     }
