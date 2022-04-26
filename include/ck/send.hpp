@@ -56,6 +56,7 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
   // we can try to look up element-like proxies
   if constexpr (is_elementlike_v<Proxy> && (is_local || is_inline)) {
     auto* local = proxy.ckLocal();
+    auto* chare = local ? static_cast<Chare*>(local) : nullptr;
     // if the look up fails...
     if (local == nullptr) {
       // abort for [local] entry methods
@@ -79,19 +80,19 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
         }
         // start tracing the object
         auto ep = get_entry_index<local_t, Entry>();
-        __trace_begin_execute<kind_t>(local, ep, size);
+        __trace_begin_execute<kind_t>(chare, ep, size);
       }
       // [local] EPs can return non-void values
       if constexpr (is_inline || std::is_same_v<void, result_t>) {
-        CkCallstackPush(static_cast<Chare*>(local));
+        CkCallstackPush(chare);
         (local->*Entry)(std::forward<const Args&>(args)...);
-        CkCallstackPop(static_cast<Chare*>(local));
+        CkCallstackPop(chare);
         _TRACE_END_EXECUTE();
         return;
       } else {
-        CkCallstackPush(static_cast<Chare*>(local));
+        CkCallstackPush(chare);
         auto res = (local->*Entry)(std::forward<const Args&>(args)...);
-        CkCallstackPop(static_cast<Chare*>(local));
+        CkCallstackPop(chare);
         _TRACE_END_EXECUTE();
         return res;
       }
