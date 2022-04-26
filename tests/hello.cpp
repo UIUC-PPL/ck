@@ -100,7 +100,7 @@ class main : public ck::chare<main, ck::main_chare> {
     nTotal = 4 * CkNumPes();
     ck::constructor_options<hello> opts(0, nTotal, 2);
     auto reply = ck::make_callback<&main::reply>(thisProxy);
-    auto proxy = ck::array_proxy<hello>::create(reply, opts);
+    auto proxy = ck::create<ck::array_proxy<hello>>(reply, opts);
     // broadcast via parameter marshaling
     ck::send<&greeter::greet>(proxy, data * 2 + 12);
     ck::send<&greeter::greet_greetable>(

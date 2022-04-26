@@ -3,6 +3,7 @@
 
 #include <ck/callback.hpp>
 #include <ck/chare.hpp>
+#include <ck/create.hpp>
 #include <ck/extends.hpp>
 #include <ck/pupable.hpp>
 #include <ck/readonly.hpp>

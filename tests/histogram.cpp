@@ -32,10 +32,10 @@ Main::Main(int argc, char **argv) {
   }
 
   // Create Histogram chare array
-  histogramProxy = ck::array_proxy<Histogram>::create(nElementsPerChare,
-                                                      maxElementValue, nChares);
+  histogramProxy = ck::create<ck::array_proxy<Histogram>>(
+      nElementsPerChare, maxElementValue, nChares);
   // Create HistogramMerger group
-  histogramMergerProxy = ck::group_proxy<HistogramMerger>::create(nBins);
+  histogramMergerProxy = ck::create<ck::group_proxy<HistogramMerger>>(nBins);
   // set readonly
   mainProxy = thisProxy;
 

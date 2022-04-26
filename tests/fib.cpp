@@ -21,8 +21,8 @@ class fib : public ck::chare<fib<T>, ck::singleton_chare> {
       this->cb_.send(seqFib(n));
     } else {
       auto reply = ck::make_callback<&fib<T>::receive_value>(this->thisProxy);
-      ck::chare_proxy<fib<T>>::create(n - 1, reply);
-      ck::chare_proxy<fib<T>>::create(n - 2, reply);
+      ck::create<ck::chare_proxy<fib<T>>>(n - 1, reply);
+      ck::create<ck::chare_proxy<fib<T>>>(n - 2, reply);
     }
   }
 
@@ -41,8 +41,9 @@ class main : public ck::chare<main, ck::main_chare> {
  public:
   main(int argc, char** argv) : n_((argc >= 2) ? argv[1] : "24") {
     auto n = std::stoull(this->n_);
-    auto cb = ck::make_callback<&main::receive_value<decltype(n)>>(thisProxy);
-    ck::chare_proxy<fib<decltype(n)>>::create(n, cb);
+    using T = std::decay_t<decltype(n)>;
+    auto cb = ck::make_callback<&main::receive_value<T>>(thisProxy);
+    ck::create<ck::chare_proxy<fib<T>>>(n, cb);
   }
 
   template <typename T>

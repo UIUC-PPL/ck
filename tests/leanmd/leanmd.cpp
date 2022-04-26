@@ -36,7 +36,7 @@ Main::Main(CkArgMsg* m) {
   }
 
   // initializing the 6D compute array
-  computeArray = ck::array_proxy<Compute>::create();
+  computeArray = ck::create<ck::array_proxy<Compute>>();
 
   // intialize the options for the cell array
   ck::constructor_options<Cell> c_opts(
@@ -46,7 +46,7 @@ Main::Main(CkArgMsg* m) {
   c_opts.e_opts = &e_opts;
 
   // initializing the 3D cell array
-  cellArray = ck::array_proxy<Cell>::create(c_opts);
+  cellArray = ck::create<ck::array_proxy<Cell>>(c_opts);
 
   CkPrintf("\nCells: %d X %d X %d .... created\n", cellArrayDimX, cellArrayDimY,
            cellArrayDimZ);
@@ -149,7 +149,8 @@ void Cell::createComputes(void) {
     if (num >= inbrs / 2) {
       auto& idx = computesList[num];
       construct(idx, x + 2, y + 2, z + 2, dx, dy, dz);
-      computeArray[idx].insert();  // TODO ( pass PE as argument )
+      // TODO ( pass PE as argument )
+      ck::insert(computeArray[idx]);
     } else {
       // these computes will be created by pairing cells
       construct(computesList[num], WRAP_X(x + dx) + 2, WRAP_Y(y + dy) + 2,
