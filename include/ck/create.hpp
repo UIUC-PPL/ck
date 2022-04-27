@@ -141,10 +141,30 @@ auto create(Args &&...args) {
   }
 }
 
-// TODO ( enable passing PE as argument )
-template <typename Kind, typename Index, typename... Args>
-auto insert(const element_proxy<Kind, array<Index>> &elt, Args &&...args) {
-  return elt.template insert<Args...>(std::forward<Args>(args)...);
+template <typename T, typename Index, std::size_t... Is, std::size_t... Js,
+          typename... Args>
+void __insert(const element_proxy<T, array<Index>> &elt,
+              std::index_sequence<Is...>, std::index_sequence<Js...>,
+              std::tuple<Args...> args) {
+  on_pe opts(std::get<Js>(std::move(args))...);
+  auto *msg = ck::pack(const_cast<CkEntryOptions *>(opts.opts),
+                       std::get<Is>(std::move(args))...);
+  auto ctor = index<T>::template constructor_index<
+      std::decay_t<decltype(std::get<Is>(args))>...>();
+  UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
+  const_cast<element_proxy<T, array<Index>> &>(elt).ckInsert(
+      (CkArrayMessage *)msg, ctor, opts.which);
+}
+
+template <typename T, typename Index, typename... Args>
+auto insert(const element_proxy<T, array<Index>> &elt, Args &&...args) {
+  using last_t = std::decay_t<get_last_t<Args...>>;
+  constexpr auto N = (std::is_same_v<on_pe, std::remove_cv_t<last_t>>)
+                         ? (sizeof...(args) - 1)
+                         : longest_match_v<T, Args...>;
+  auto is = std::make_index_sequence<N>();
+  auto js = make_index_range<N, sizeof...(Args)>();
+  __insert(elt, is, js, std::forward_as_tuple(args...));
 }
 }  // namespace ck
 

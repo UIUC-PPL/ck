@@ -69,7 +69,8 @@ struct on_pe {
 
   on_pe(const CkEntryOptions* opts_ = nullptr) : on_pe(CK_PE_ANY, opts_) {}
 
-  on_pe(int which_, const CkEntryOptions* opts_) : which(which_), opts(opts_) {}
+  on_pe(int which_, const CkEntryOptions* opts_ = nullptr)
+      : which(which_), opts(opts_) {}
 };
 }  // namespace ck
 

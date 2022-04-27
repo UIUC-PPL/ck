@@ -190,16 +190,6 @@ struct element_proxy : public element_proxy_of_t<Kind> {
     }
   }
 
-  template <typename... Args>
-  std::enable_if_t<get_first_v<is_array, Args...>> insert(
-      Args &&...args) const {
-    auto *msg = ck::pack(nullptr, std::forward<Args>(args)...);
-    auto ctor = index<Base>::template constructor_index<Args...>();
-    UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
-    const_cast<element_t *>(this)->ckInsert((CkArrayMessage *)msg, ctor,
-                                            CK_PE_ANY);
-  }
-
   auto ckLocal(void) const {
     if constexpr (is_array) {
       return reinterpret_cast<local_t *>(parent_t::ckLocal());
