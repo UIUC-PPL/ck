@@ -36,13 +36,16 @@ collection_proxy<Base, Kind> __create_grouplike(const CkEntryOptions *opts,
 }
 }  // namespace
 
-// creates a proxy with the given arguments
 template <typename Proxy>
 struct creator;
 
-// array creator with options given
 template <typename Base, typename Index>
 struct creator<array_proxy<Base, Index>> {
+  array_proxy<Base, Index> operator()(void) const {
+    CkArrayOptions opts;
+    return CProxy_ArrayBase::ckCreateEmptyArray(opts);
+  }
+
   template <typename... Args>
   array_proxy<Base, Index> operator()(const constructor_options<Base> &opts,
                                       Args &&...args) const {
@@ -50,7 +53,6 @@ struct creator<array_proxy<Base, Index>> {
   }
 };
 
-// group creator with no options given
 template <typename Base>
 struct creator<group_proxy<Base>> {
   template <typename... Args>
@@ -70,7 +72,6 @@ struct creator<nodegroup_proxy<Base>> {
   }
 };
 
-// creator for singleton chares
 template <typename Base>
 struct creator<chare_proxy<Base>> {
   template <typename... Args>
@@ -114,10 +115,8 @@ auto __create(std::index_sequence<Is...>, std::index_sequence<Js...>,
               std::tuple<Args...> args) {
   using local_t = typename Proxy::local_t;
   using options_t = options_of_t<Proxy>;
-  constexpr auto empty = sizeof...(Args) == 0;
-  if constexpr (empty && Proxy::is_array) {
-    CkArrayOptions opts;
-    return CProxy_ArrayBase::ckCreateEmptyArray(opts);
+  if constexpr (Proxy::is_array && (sizeof...(Args) == 0)) {
+    return creator<Proxy>()();
   } else {
     options_t opts(std::get<Js>(std::move(args))...);
     return creator<Proxy>()(opts, std::get<Is>(std::move(args))...);
