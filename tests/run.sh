@@ -23,10 +23,13 @@ else
     set -u
 fi
 # detect the number of processors to run with
-if [ "$OSTYPE" = "linux-gnu" ]; then
-    nproc=$(grep ^cpu\\scores /proc/cpuinfo | uniq |  awk '{print $4}')
-else
-    nproc=$(nproc)
+nproc=${CMK_NUM_PES:-}
+if [ -z "$nproc" ]; then
+    if [ "$OSTYPE" = "linux-gnu" ]; then
+        nproc=$(grep ^cpu\\scores /proc/cpuinfo | uniq |  awk '{print $4}')
+    else
+        nproc=$(nproc)
+    fi
 fi
 # detect netlrts builds and set all-test options accordingly
 if [ "$CMK_GDIR" = "netlrts" ]; then
