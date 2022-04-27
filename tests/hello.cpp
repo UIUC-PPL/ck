@@ -98,7 +98,7 @@ class main : public ck::chare<main, ck::main_chare> {
     int data = 42;
     // creates an array with the even indices from 0..(4*CkNumPes)
     nTotal = 4 * CkNumPes();
-    ck::constructor_options<hello> opts(0, nTotal, 2);
+    ck::array_options<CkIndex1D> opts(0, nTotal, 2);
     auto reply = ck::make_callback<&main::reply>(thisProxy);
     auto proxy = ck::create<ck::array_proxy<hello>>(reply, opts);
     // broadcast via parameter marshaling

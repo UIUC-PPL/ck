@@ -6,15 +6,10 @@
 
 namespace ck {
 
-// options given to a constructor for a given class
-template <typename T, typename Enable = void>
-struct constructor_options;
-
 // options given to a constructor for a chare-array
-template <typename T>
-struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>>
-    : public CkArrayOptions {
-  using index_t = index_of_t<kind_of_t<T>>;
+template <typename Index>
+struct array_options : public CkArrayOptions {
+  using index_t = Index;
   using array_index_t = array_index_of_t<index_t>;
 
  private:
@@ -37,29 +32,28 @@ struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>>
  public:
   CkEntryOptions* e_opts = nullptr;
 
-  constructor_options(const index_t& stop)
-      : constructor_options(index_view<index_t>::encode(stop)) {}
+  array_options(const index_t& stop)
+      : array_options(index_view<index_t>::encode(stop)) {}
 
-  constructor_options(const array_index_t& stop)
+  array_options(const array_index_t& stop)
       : CkArrayOptions(CkArrayIndex(__get_dimension(stop), 0), stop,
                        CkArrayIndex(__get_dimension(stop), 1)) {}
 
-  constructor_options(const index_t& start, const index_t& stop)
-      : constructor_options(index_view<index_t>::encode(start),
-                            index_view<index_t>::encode(stop)) {}
+  array_options(const index_t& start, const index_t& stop)
+      : array_options(index_view<index_t>::encode(start),
+                      index_view<index_t>::encode(stop)) {}
 
-  constructor_options(const array_index_t& start, const array_index_t& stop)
+  array_options(const array_index_t& start, const array_index_t& stop)
       : CkArrayOptions(start, stop,
                        CkArrayIndex(__get_dimension(start, stop), 1)) {}
 
-  constructor_options(const index_t& start, const index_t& stop,
-                      const index_t& step)
-      : constructor_options(index_view<index_t>::encode(start),
-                            index_view<index_t>::encode(stop),
-                            index_view<index_t>::encode(step)) {}
+  array_options(const index_t& start, const index_t& stop, const index_t& step)
+      : array_options(index_view<index_t>::encode(start),
+                      index_view<index_t>::encode(stop),
+                      index_view<index_t>::encode(step)) {}
 
-  constructor_options(const array_index_t& start, const array_index_t& stop,
-                      const array_index_t& step)
+  array_options(const array_index_t& start, const array_index_t& stop,
+                const array_index_t& step)
       : CkArrayOptions(start, stop, step) {}
 };
 

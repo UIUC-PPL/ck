@@ -47,7 +47,7 @@ struct creator<array_proxy<Base, Index>> {
   }
 
   template <typename... Args>
-  array_proxy<Base, Index> operator()(const constructor_options<Base> &opts,
+  array_proxy<Base, Index> operator()(const array_options<Index> &opts,
                                       Args &&...args) const {
     return __create_array<Base, Index>(opts, std::forward<Args>(args)...);
   }
@@ -103,31 +103,31 @@ struct options_of<chare_proxy<T>> {
 
 template <typename T, typename Index>
 struct options_of<collection_proxy<T, array<Index>>> {
-  using type = constructor_options<T>;
+  using type = array_options<Index>;
 };
 
 template <typename T>
 using options_of_t = typename options_of<T>::type;
 
+namespace {
 template <typename Proxy, std::size_t... Is, std::size_t... Js,
           typename... Args>
 auto __create(std::index_sequence<Is...>, std::index_sequence<Js...>,
               std::tuple<Args...> args) {
-  using local_t = typename Proxy::local_t;
-  using options_t = options_of_t<Proxy>;
-  if constexpr (Proxy::is_array && (sizeof...(Args) == 0)) {
-    return creator<Proxy>()();
-  } else {
-    options_t opts(std::get<Js>(std::move(args))...);
-    return creator<Proxy>()(opts, std::get<Is>(std::move(args))...);
-  }
+  options_of_t<Proxy> opts(std::get<Js>(std::move(args))...);
+  return creator<Proxy>()(opts, std::get<Is>(std::move(args))...);
 }
+}  // namespace
 
 // TODO ( enable asynchronous (array?) creation )
 template <typename Proxy, typename... Args>
 auto create(Args &&...args) {
   if constexpr (is_section_v<Proxy>) {
     return Proxy(std::move(args)...);
+  } else if constexpr (Proxy::is_array && (sizeof...(Args) == 0)) {
+    static_assert(!is_elementlike_v<Proxy>,
+                  "chare-array elements must use insert");
+    return creator<Proxy>()();
   } else {
     using last_t = std::decay_t<get_last_t<Args...>>;
     using local_t = typename Proxy::local_t;
@@ -141,6 +141,7 @@ auto create(Args &&...args) {
   }
 }
 
+namespace {
 template <typename T, typename Index, std::size_t... Is, std::size_t... Js,
           typename... Args>
 void __insert(const element_proxy<T, array<Index>> &elt,
@@ -155,6 +156,7 @@ void __insert(const element_proxy<T, array<Index>> &elt,
   const_cast<element_proxy<T, array<Index>> &>(elt).ckInsert(
       (CkArrayMessage *)msg, ctor, opts.which);
 }
+}  // namespace
 
 template <typename T, typename Index, typename... Args>
 auto insert(const element_proxy<T, array<Index>> &elt, Args &&...args) {

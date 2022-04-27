@@ -39,7 +39,7 @@ Main::Main(CkArgMsg* m) {
   computeArray = ck::create<ck::array_proxy<Compute>>();
 
   // intialize the options for the cell array
-  ck::constructor_options<Cell> c_opts(
+  ck::array_options<CkIndex3D> c_opts(
       CkArrayIndex3D(cellArrayDimX, cellArrayDimY, cellArrayDimZ));
   CkEntryOptions e_opts;
   e_opts.addGroupDepID((CkGroupID)computeArray.ckGetArrayID());
@@ -149,7 +149,7 @@ void Cell::createComputes(void) {
     if (num >= inbrs / 2) {
       auto& idx = computesList[num];
       construct(idx, x + 2, y + 2, z + 2, dx, dy, dz);
-      ck::insert(computeArray[idx], ck::on_pe((++currPe)%numPes));
+      ck::insert(computeArray[idx], ck::on_pe((++currPe) % numPes));
     } else {
       // these computes will be created by pairing cells
       construct(computesList[num], WRAP_X(x + dx) + 2, WRAP_Y(y + dy) + 2,
