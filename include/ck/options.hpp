@@ -62,6 +62,15 @@ struct constructor_options<T, std::enable_if_t<is_array_v<kind_of_t<T>>>>
                       const array_index_t& step)
       : CkArrayOptions(start, stop, step) {}
 };
+
+struct on_pe {
+  int which;
+  const CkEntryOptions* opts;
+
+  on_pe(const CkEntryOptions* opts_ = nullptr) : on_pe(CK_PE_ANY, opts_) {}
+
+  on_pe(int which_, const CkEntryOptions* opts_) : which(which_), opts(opts_) {}
+};
 }  // namespace ck
 
 #endif

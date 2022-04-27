@@ -18,10 +18,6 @@
 
 namespace ck {
 
-// creates a proxy with the given arguments
-template <typename Proxy, typename... Args>
-struct creator;
-
 // proxy for singleton chares
 template <typename Base>
 struct chare_proxy : public CProxy_Chare {
@@ -29,6 +25,7 @@ struct chare_proxy : public CProxy_Chare {
   using index_t = index<Base>;
   using proxy_t = chare_proxy<Base>;
   using element_t = chare_proxy<Base>;
+  static constexpr auto is_array = false;
 
   chare_proxy(PUP::reconstruct) = delete;
   chare_proxy(CkMigrateMessage *) = delete;
@@ -36,12 +33,6 @@ struct chare_proxy : public CProxy_Chare {
   // TODO ( make this explicit! )
   template <typename... Args>
   chare_proxy(Args &&...args) : CProxy_Chare(std::forward<Args>(args)...) {}
-
-  template <typename... Args>
-  static chare_proxy<Base> create(Args &&...args) {
-    return creator<proxy_t, std::decay_t<Args>...>()(
-        std::forward<Args>(args)...);
-  }
 
   void send(CkMessage *msg, int ep, int flags) const {
     CkSendMsg(ep, msg, &(this->ckGetChareID()), flags);
@@ -139,11 +130,6 @@ struct section_proxy : public section_proxy_of_t<Kind> {
   // TODO ( make this explicit! )
   template <typename... Args>
   section_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
-
-  template <typename... Args>
-  static auto create(Args &&...args) {
-    return section_t(std::forward<Args>(args)...);
-  }
 
   void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {
@@ -245,12 +231,6 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
   template <typename... Args>
   collection_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
 
-  template <typename... Args>
-  static auto create(Args &&...args) {
-    return creator<proxy_t, std::decay_t<Args>...>()(
-        std::forward<Args>(args)...);
-  }
-
   void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {
       this->ckBroadcast((CkArrayMessage *)msg, ep, flags);
@@ -321,100 +301,14 @@ struct is_elementlike<element_proxy<Base, Kind>> : public std::true_type {};
 template <typename T>
 constexpr auto is_elementlike_v = is_elementlike<T>::value;
 
-namespace {
-template <typename Base, typename Index, typename Options, typename... Args>
-array_proxy<Base, Index> __create_array(const Options &opts, Args &&...args) {
-  // pack the arguments into a message (with the entry options)
-  auto *msg = ck::pack(opts.e_opts, std::forward<Args>(args)...);
-  // retrieve the constructor's index
-  auto ctor = index<Base>::template constructor_index<std::decay_t<Args>...>();
-  // set the message type
-  UsrToEnv(msg)->setMsgtype(ArrayEltInitMsg);
-  // create the array
-  return CProxy_ArrayBase::ckCreateArray((CkArrayMessage *)msg, ctor, opts);
-}
+template <typename T>
+struct is_section : public std::false_type {};
 
-template <typename Base, typename Kind, typename... Args>
-collection_proxy<Base, Kind> __create_grouplike(CkEntryOptions *opts,
-                                                Args &&...args) {
-  constexpr auto is_group = std::is_same_v<Kind, group>;
-  constexpr auto msg_type = is_group ? BocInitMsg : NodeBocInitMsg;
-  auto idx = index<Base>::__idx;
-  auto ctor = index<Base>::template constructor_index<std::decay_t<Args>...>();
-  auto *msg = ck::pack(opts, std::forward<Args>(args)...);
-  UsrToEnv(msg)->setMsgtype(msg_type);
-  if constexpr (is_group) {
-    return CkCreateGroup(idx, ctor, msg);
-  } else {
-    return CkCreateNodeGroup(idx, ctor, msg);
-  }
-}
-}  // namespace
+template <typename T, typename Kind>
+struct is_section<section_proxy<T, Kind>> : public std::true_type {};
 
-// array creator with options given
-template <typename Base, typename Index, typename... Ts>
-struct creator<array_proxy<Base, Index>, Ts...> {
-  using options_t = constructor_options<Base>;
-
- private:
-  template <std::size_t... I0s, std::size_t... I1s, class... Args>
-  static CkArrayID __create_with_options(std::index_sequence<I0s...>,
-                                         std::index_sequence<I1s...>,
-                                         std::tuple<Args...> args) {
-    options_t opts(std::get<I0s>(std::move(args))...);
-    return __create_array<Base, Index>(opts, std::get<I1s>(std::move(args))...);
-  }
-
- public:
-  template <typename... Args>
-  array_proxy<Base, Index> operator()(Args &&...args) const {
-    constexpr auto empty = sizeof...(Args) == 0;
-    if constexpr (empty) {
-      CkArrayOptions opts;
-      return CProxy_ArrayBase::ckCreateEmptyArray(opts);
-    } else {
-      using last_t = get_last_t<Ts...>;
-      static_assert(std::is_constructible_v<options_t, last_t>);
-      return __create_with_options(
-          std::index_sequence<sizeof...(Args) - 1>{},       // put last first
-          std::make_index_sequence<sizeof...(Args) - 1>{},  // put first last
-          std::forward_as_tuple(std::forward<Args>(args)...));
-    }
-  }
-};
-
-// group creator with no options given
-template <typename Base, typename... Ts>
-struct creator<group_proxy<Base>, Ts...> {
-  template <typename... Args>
-  group_proxy<Base> operator()(Args &&...args) const {
-    return __create_grouplike<Base, group>(nullptr,
-                                           std::forward<Args>(args)...);
-  }
-};
-
-template <typename Base, typename... Ts>
-struct creator<nodegroup_proxy<Base>, Ts...> {
-  template <typename... Args>
-  nodegroup_proxy<Base> operator()(Args &&...args) const {
-    return __create_grouplike<Base, nodegroup>(nullptr,
-                                               std::forward<Args>(args)...);
-  }
-};
-
-// creator for singleton chares
-template <typename Base, typename... Ts>
-struct creator<chare_proxy<Base>, Ts...> {
-  template <typename... Args>
-  chare_proxy<Base> operator()(Args &&...args) const {
-    CkChareID ret;
-    auto *epopts = (CkEntryOptions *)nullptr;
-    auto *msg = ck::pack(epopts, std::forward<Args>(args)...);
-    auto ctor = index<Base>::template constructor_index<Ts...>();
-    CkCreateChare(index<Base>::__idx, ctor, msg, &ret, CK_PE_ANY);
-    return ret;
-  }
-};
+template <typename T>
+constexpr auto is_section_v = is_section<T>::value;
 }  // namespace ck
 
 #endif

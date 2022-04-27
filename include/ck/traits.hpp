@@ -195,6 +195,47 @@ struct get_last<std::tuple<Ts...>, std::enable_if_t<(sizeof...(Ts) >= 1)>> {
 // returns the last type in a parameter pack
 template <typename... Ts>
 using get_last_t = typename get_last<std::tuple<Ts...>>::type;
+
+template <std::size_t N, std::size_t... Seq>
+constexpr std::index_sequence<N + Seq...> add(std::index_sequence<Seq...>) {
+  return {};
+}
+
+template <std::size_t Min, std::size_t Max>
+using make_index_range =
+    decltype(add<Min>(std::make_index_sequence<Max - Min>()));
+
+template <typename Class, typename T>
+struct is_constructible_helper;
+
+template <typename Class, typename... Ts>
+struct is_constructible_helper<Class, std::tuple<Ts...>>
+    : public std::is_constructible<Class, Ts...> {};
+
+template <typename Class, typename T, std::size_t I, typename Enable = void>
+struct longest_match_helper : public std::integral_constant<std::size_t, 0> {};
+
+template <typename Class, typename... Ts, std::size_t I>
+struct longest_match_helper<Class, std::tuple<Ts...>, I,
+                            std::enable_if_t<(I <= sizeof...(Ts))>> {
+ private:
+  template <std::size_t... Is>
+  static auto __subset(std::index_sequence<Is...>) -> decltype(std::make_tuple(
+      std::get<Is>(std::declval<std::tuple<Ts...>>())...));
+
+  using subset_t = decltype(__subset(std::make_index_sequence<I>()));
+  static constexpr auto is_constructible =
+      is_constructible_helper<Class, subset_t>::value;
+
+ public:
+  static constexpr auto value =
+      std::max(is_constructible * I,
+               longest_match_helper<Class, std::tuple<Ts...>, (I + 1)>::value);
+};
+
+template <typename Class, typename... Ts>
+constexpr auto longest_match_v =
+    longest_match_helper<Class, std::tuple<Ts...>, 0>::value;
 }  // namespace ck
 
 #endif
