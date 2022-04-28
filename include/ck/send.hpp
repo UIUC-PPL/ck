@@ -5,6 +5,20 @@
 
 namespace ck {
 namespace {
+// returns the CkEnvelopeType for a send operation of a given kind
+template <typename Kind>
+constexpr CkEnvelopeType message_type(bool is_elementlike) {
+  if (is_array_v<Kind>) {
+    return is_elementlike ? ForArrayEltMsg : ArrayBcastMsg;
+  } else if (std::is_same_v<group, Kind>) {
+    return is_elementlike ? ForBocMsg : BocBcastMsg;
+  } else if (std::is_same_v<nodegroup, Kind>) {
+    return ForNodeBocMsg;
+  } else {
+    return is_elementlike ? ForChareMsg : LAST_CK_ENVELOPE_TYPE;
+  }
+}
+
 // traces the creation of a message
 inline void __trace_creation(envelope* env, int ep, CkEnvelopeType type,
                              std::size_t size) {
@@ -116,6 +130,9 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
   }
 }
 
+// non-trivial helper function to detect when an CkEntryOptions* is
+// given as the last argument of a send-call and move it to the
+// appropriate position, see: https://stackoverflow.com/q/31255890/
 template <auto Entry, typename Attributes, typename Proxy, std::size_t... I0s,
           std::size_t... I1s, typename... Args>
 auto __send(const Proxy& proxy,

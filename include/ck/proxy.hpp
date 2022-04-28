@@ -53,52 +53,7 @@ struct element_proxy;
 template <typename Base, typename Kind = kind_of_t<Base>>
 struct section_proxy;
 
-template <typename Kind>
-constexpr CkEnvelopeType message_type(bool is_elementlike) {
-  if (is_array_v<Kind>) {
-    return is_elementlike ? ForArrayEltMsg : ArrayBcastMsg;
-  } else if (std::is_same_v<group, Kind>) {
-    return is_elementlike ? ForBocMsg : BocBcastMsg;
-  } else if (std::is_same_v<nodegroup, Kind>) {
-    return ForNodeBocMsg;
-  } else {
-    return is_elementlike ? ForChareMsg : LAST_CK_ENVELOPE_TYPE;
-  }
-}
-
 namespace {
-
-// non-trivial helper function to detect when an CkEntryOptions* is
-// given as the last argument of a send-call and move it to the
-// appropriate position, based on: https://stackoverflow.com/q/31255890/
-template <class Base, auto Entry,
-          template <class, auto, class, class...> class Sender, class First,
-          std::size_t... I0s, std::size_t... I1s, class... Ts>
-void __send_with_options(
-    const First &first,
-    std::index_sequence<I0s...>,  // first args
-    std::index_sequence<I1s...>,  // last args
-    std::tuple<Ts..., CkEntryOptions *&&> args /* all args */) {
-  Sender<Base, Entry, First, Ts...>()(std::get<I0s>(std::move(args))..., first,
-                                      std::get<I1s>(std::move(args))...);
-}
-
-template <class Base, auto Entry,
-          template <class, auto, class, class...> class Sender, class First,
-          class... Ts>
-void __send(const First &first, Ts &&...ts) {
-  using last_t = get_last_t<Ts...>;
-  if constexpr (std::is_same_v<CkEntryOptions *, std::decay_t<last_t>>) {
-    __send_with_options<Base, Entry, Sender>(
-        first, std::index_sequence<sizeof...(ts) - 1>{},  // put last first
-        std::make_index_sequence<sizeof...(ts) - 1>{},    // put first last
-        std::forward_as_tuple(std::forward<Ts>(ts)...));  // bundled args
-  } else {
-    Sender<Base, Entry, First, Ts...>()(nullptr, first,
-                                        std::forward<Ts>(ts)...);
-  }
-}
-
 template <typename... Left, typename... Right>
 CkSectionInfo &__info(Left &&..., CkSectionInfo &info, Right &&...) {
   return info;
@@ -279,6 +234,7 @@ struct instance_proxy_of<
   using type = chare_proxy<T>;
 };
 
+// returns the type of thisProxy for an instance of a particular kind
 template <typename T, typename Kind = kind_of_t<T>>
 using instance_proxy_of_t = typename instance_proxy_of<T, Kind>::type;
 
@@ -291,6 +247,7 @@ struct is_elementlike<chare_proxy<Base>> : public std::true_type {};
 template <typename Base, typename Kind>
 struct is_elementlike<element_proxy<Base, Kind>> : public std::true_type {};
 
+// returns whether a proxy is considered "element-like" (elements or singletons)
 template <typename T>
 constexpr auto is_elementlike_v = is_elementlike<T>::value;
 
@@ -300,6 +257,7 @@ struct is_section : public std::false_type {};
 template <typename T, typename Kind>
 struct is_section<section_proxy<T, Kind>> : public std::true_type {};
 
+// returns whether a proxy is a section proxy
 template <typename T>
 constexpr auto is_section_v = is_section<T>::value;
 }  // namespace ck
