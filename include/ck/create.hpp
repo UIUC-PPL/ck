@@ -6,6 +6,7 @@
 namespace ck {
 
 namespace {
+// helper to create chare-arrays
 template <typename Base, typename Index, typename Options, typename... Args>
 array_proxy<Base, Index> __create_array(const Options &opts, Args &&...args) {
   // pack the arguments into a message (with the entry options)
@@ -18,6 +19,7 @@ array_proxy<Base, Index> __create_array(const Options &opts, Args &&...args) {
   return CProxy_ArrayBase::ckCreateArray((CkArrayMessage *)msg, ctor, opts);
 }
 
+// helper to create group-like proxies
 template <typename Base, typename Kind, typename... Args>
 collection_proxy<Base, Kind> __create_grouplike(const CkEntryOptions *opts,
                                                 Args &&...args) {
@@ -36,6 +38,7 @@ collection_proxy<Base, Kind> __create_grouplike(const CkEntryOptions *opts,
 }
 }  // namespace
 
+// helper to instantiate a proxy of the given type
 template <typename Proxy>
 struct creator;
 
@@ -106,10 +109,12 @@ struct options_of<collection_proxy<T, array<Index>>> {
   using type = array_options<Index>;
 };
 
+// returns the options while creating the given proxy type
 template <typename T>
 using options_of_t = typename options_of<T>::type;
 
 namespace {
+// utility function for creating proxies
 template <typename Proxy, std::size_t... Is, std::size_t... Js,
           typename... Args>
 auto __create(std::index_sequence<Is...>, std::index_sequence<Js...>,
@@ -117,31 +122,8 @@ auto __create(std::index_sequence<Is...>, std::index_sequence<Js...>,
   options_of_t<Proxy> opts(std::get<Js>(std::move(args))...);
   return creator<Proxy>()(opts, std::get<Is>(std::move(args))...);
 }
-}  // namespace
 
-// TODO ( enable asynchronous (array?) creation )
-template <typename Proxy, typename... Args>
-auto create(Args &&...args) {
-  if constexpr (is_section_v<Proxy>) {
-    return Proxy(std::move(args)...);
-  } else if constexpr (Proxy::is_array && (sizeof...(Args) == 0)) {
-    static_assert(!is_elementlike_v<Proxy>,
-                  "chare-array elements must use insert");
-    return creator<Proxy>()();
-  } else {
-    using last_t = std::decay_t<get_last_t<Args...>>;
-    using local_t = typename Proxy::local_t;
-    using options_t = options_of_t<Proxy>;
-    constexpr auto N = (std::is_same_v<options_t, std::remove_cv_t<last_t>>)
-                           ? (sizeof...(args) - 1)
-                           : longest_match_v<local_t, Args...>;
-    auto is = std::make_index_sequence<N>();
-    auto js = make_index_range<N, sizeof...(Args)>();
-    return __create<Proxy>(is, js, std::forward_as_tuple(args...));
-  }
-}
-
-namespace {
+// utility function for inserting elements
 template <typename T, typename Index, std::size_t... Is, std::size_t... Js,
           typename... Args>
 void __insert(const element_proxy<T, array<Index>> &elt,
@@ -158,6 +140,31 @@ void __insert(const element_proxy<T, array<Index>> &elt,
 }
 }  // namespace
 
+// creates a singleton, collection, or section proxy with the given arguments
+// TODO ( enable asynchronous (array?) creation )
+template <typename Proxy, typename... Args>
+auto create(Args &&...args) {
+  using local_t = typename Proxy::local_t;
+  using instance_t = instance_proxy_of_t<local_t>;
+  static_assert(std::is_same_v<instance_t, Proxy> || !is_elementlike_v<Proxy>,
+                "elements cannot be created and must use insert");
+  if constexpr (is_section_v<Proxy>) {
+    return Proxy(std::move(args)...);
+  } else if constexpr (Proxy::is_array && (sizeof...(Args) == 0)) {
+    return creator<Proxy>()();
+  } else {
+    using last_t = std::decay_t<get_last_t<Args...>>;
+    using options_t = options_of_t<Proxy>;
+    constexpr auto N = (std::is_same_v<options_t, std::remove_cv_t<last_t>>)
+                           ? (sizeof...(args) - 1)
+                           : longest_match_v<local_t, Args...>;
+    auto is = std::make_index_sequence<N>();
+    auto js = make_index_range<N, sizeof...(Args)>();
+    return __create<Proxy>(is, js, std::forward_as_tuple(args...));
+  }
+}
+
+// inserts an element proxy into a chare array with the given args
 template <typename T, typename Index, typename... Args>
 auto insert(const element_proxy<T, array<Index>> &elt, Args &&...args) {
   using last_t = std::decay_t<get_last_t<Args...>>;
