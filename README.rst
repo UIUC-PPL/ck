@@ -9,6 +9,10 @@ Other links:
 
 * `Project Feedback Collection Poll. <https://forms.gle/XLwDVLuJ8skbWsL48>`_
 
+Building+Running
+================
+Currently NAME is built out-of-tree with Charm++, requiring no modifications to the mainline repository. To build a standalone program, include the :code:`include/` directory in this repo, and add the flags to enable C++17 to :code:`charmc` (i.e., :code:`-c++-option -std=c++17`). The simplest way to build and run all of NAME's test programs is to run the :code:`tests/run.sh` script.
+
 Chares
 ======
 NAME supports all the chare-types through the :code:`ck::chare` class template. Its first parameter is the user's class (CRTP), and its second is the chare-type, i.e., :code:`ck::main_chare`, :code:`ck::singleton_chare`, :code:`ck::group`, :code:`ck::nodegroup`,  or :code:`ck::array<Index>`. Note that :code:`ck::array` is itself a class template whose parameter is the index-type of the chare array. All the built-in indices are supported by default (i.e., :code:`CkIndex[1-6]D`), with user-defined index-types requiring specializations of the :code:`ck::index_view` class template (to define their encoding scheme). As with "conventional" Charm++, migratable chare-types must have migration constructors and :code:`pup` routines.
