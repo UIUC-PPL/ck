@@ -109,8 +109,7 @@ auto __send(const Proxy& proxy, const CkEntryOptions* opts,
 
     if constexpr (is_array) {
       UsrToEnv(msg)->setMsgtype(ForArrayEltMsg);
-      // TODO ( add support for array createhere/home messages )
-      ((CkArrayMessage*)msg)->array_setIfNotThere(CkArray_IfNotThere_buffer);
+      ((CkArrayMessage*)msg)->array_setIfNotThere(if_not_there_v<Entry>);
     }
 
     proxy.send(msg, ep, flags);

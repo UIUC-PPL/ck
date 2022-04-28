@@ -16,6 +16,10 @@
   }
 
 // can we condense this down to a one-liner?
+#define CK_EXCLUSIVE_CREATEHERE(...) \
+  CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), createhere)
+#define CK_EXCLUSIVE_CREATEHOME(...) \
+  CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), createhome)
 #define CK_EXCLUSIVE_ENTRY(...) \
   CK_ENTRY_ASSIGN_ATTRIBUTE((__VA_ARGS__), exclusive)
 #define CK_EXPEDITED_ENTRY(...) \
@@ -31,6 +35,8 @@
 
 namespace ck {
 
+CK_ENTRY_ATTRIBUTE_DECLARE(createhere);
+CK_ENTRY_ATTRIBUTE_DECLARE(createhome);
 CK_ENTRY_ATTRIBUTE_DECLARE(exclusive);
 CK_ENTRY_ATTRIBUTE_DECLARE(expedited);
 CK_ENTRY_ATTRIBUTE_DECLARE(immediate);
@@ -91,7 +97,22 @@ constexpr auto message_flags_value(void) {
   flags |= NoTrace::value * is_notrace_v<Entry>;
   return flags;
 }
+
+template <auto Entry>
+constexpr auto if_not_there(void) {
+  if constexpr (is_createhere_v<Entry>) {
+    return CkArray_IfNotThere_createhere;
+  } else if constexpr (is_createhome_v<Entry>) {
+    return CkArray_IfNotThere_createhome;
+  } else {
+    return CkArray_IfNotThere_buffer;
+  }
+}
 }  // namespace
+
+// returns an entry method's behavior if an element's not present
+template <auto Entry>
+constexpr auto if_not_there_v = if_not_there<Entry>();
 
 // returns an entry method's flags for a ckSend-like call
 template <auto Entry>
