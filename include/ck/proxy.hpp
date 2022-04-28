@@ -196,13 +196,16 @@ struct element_proxy : public element_proxy_of_t<Kind> {
     } else {
       auto pe = this->ckGetGroupPe();
       auto node = is_group ? CkNodeOf(pe) : pe;
-      CkEnforceMsg(node == CkMyNode(), "non-local element");
-      if constexpr (is_group) {
-        auto *obj = CkLocalBranchOther(this->ckGetGroupID(), CkRankOf(pe));
-        return reinterpret_cast<local_t *>(obj);
+      if (node == CkMyNode()) {
+        if constexpr (is_group) {
+          auto *obj = CkLocalBranchOther(this->ckGetGroupID(), CkRankOf(pe));
+          return reinterpret_cast<local_t *>(obj);
+        } else {
+          return reinterpret_cast<local_t *>(
+              CkLocalNodeBranch(this->ckGetGroupID()));
+        }
       } else {
-        return reinterpret_cast<local_t *>(
-            CkLocalNodeBranch(this->ckGetGroupID()));
+        return (local_t *)nullptr;
       }
     }
   }
