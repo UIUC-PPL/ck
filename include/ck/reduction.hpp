@@ -102,7 +102,7 @@ std::enable_if_t<is_bytes_v<T>, ck::span<T>> unpack_contribution(
     const std::shared_ptr<Message>& msg) {
   auto* data = reinterpret_cast<T*>(msg->getData());
   auto size = msg->getLength() / sizeof(T);
-  return ck::span(std::shared_ptr<T>(msg, data), size);
+  return ck::span<T>(std::shared_ptr<T>(msg, data), size);
 }
 
 // helper class to register reduction functions (i.e., reducers) with the rts

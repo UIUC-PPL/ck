@@ -3,75 +3,150 @@
 
 #include <charm++.h>
 
-#include <variant>
-
 namespace ck {
-// a range of values that can hold shared ownership of a message
-template <typename T>
-class span {
-  T *begin_, *end_;
 
-  using source_ptr = std::shared_ptr<T>;
+template <typename T, std::size_t N>
+struct nd_span {
+  using source_type = std::shared_ptr<T>;
+  using shape_type =
+      std::conditional_t<(N == 1), std::size_t, std::array<std::size_t, N>>;
+  using value_type = std::conditional_t<(N == 1), T&, nd_span<T, (N - 1)>>;
 
-  std::variant<std::monostate, source_ptr, std::vector<T>> source_;
+  static_assert(N >= 1);
 
- public:
-  span(void) = default;
+  static constexpr auto dimensionality = N;
 
-  span(std::vector<T>&& t)
-      : begin_(t.data()),
-        end_(t.data() + t.size()),
-        source_(std::forward<std::vector<T>>(t)) {}
+  template <typename, std::size_t>
+  friend struct nd_span;
 
-  span(std::shared_ptr<T[]>&& source, std::size_t size)
-      : span(source_ptr(source, source.get()), size) {}
+ private:
+  shape_type shape_;
+  source_type source_;
+  std::size_t offset_;
 
-  span(source_ptr&& source, std::size_t size)
-      : begin_(source.get()),
-        end_(begin_ + size),
-        source_(std::forward<source_ptr>(source)) {}
+  nd_span(const source_type& source, const shape_type& shape,
+          std::size_t offset)
+      : shape_(shape), source_(source), offset_(offset) {}
 
-  template <typename... Args>
-  explicit span(std::size_t size, Args&&... args)
-      : span(std::vector<T>(size, std::forward<Args>(args)...)) {}
-
-  // irrevocably takes ownership of the given source pointer
-  span(T* source, std::size_t size) : span(source_ptr(source), size) {}
-
-  T* begin(void) const { return this->begin_; }
-
-  T* end(void) const { return this->end_; }
-
-  T& operator[](std::size_t idx) const { return (this->begin_)[idx]; }
-
-  std::size_t size(void) const { return this->end_ - this->begin_; }
-
-  bool holds_source(void) const {
-    return std::holds_alternative<source_ptr>(this->source_);
+  template <typename... Ts>
+  static T* __alloc(std::size_t size, const Ts&... ts) {
+    auto* t = (T*)(::operator new(size * sizeof(T)));
+    if constexpr (!std::is_trivial_v<T>) {
+      auto* end = t + size;
+      for (auto it = t; it != end; it++) {
+        new (it) T(std::forward<const Ts&>(ts)...);
+      }
+    }
+    return t;
   }
 
-  void pup(PUP::er& p) {
-    if (p.isUnpacking()) {
-      // initialize the source
-      this->source_ = std::vector<T>();
-      // PUP the resulting vector
-      auto& data = std::get<std::vector<T>>(this->source_);
-      p | data;
-      // update the range
-      this->begin_ = data.data();
-      this->end_ = data.data() + data.size();
-    } else if (std::holds_alternative<std::vector<T>>(this->source_)) {
-      auto& data = std::get<std::vector<T>>(this->source_);
-      p | data;
+ public:
+  explicit nd_span(void) : offset_(0) {
+    if constexpr (N == 1) {
+      this->shape_ = 0;
     } else {
-      // this fakes pup'ing an STL container
-      PUP_stl_container_size(p, *this);
-      for (auto it = this->begin_; it != this->end_; it++) {
-        p | (*it);
+      std::fill(this->shape_.begin(), this->shape_.end(), 0);
+    }
+  }
+
+  explicit nd_span(const source_type& source, const shape_type& shape)
+      : nd_span(source, shape, 0) {}
+
+  explicit nd_span(const shape_type& shape)
+      : shape_(shape), source_(__alloc(this->size())), offset_(0) {}
+
+  // enables converting std::vectors of compatible types to spans
+  template <typename A, typename std::enable_if_t<
+                            (N == 1) && std::is_assignable_v<T&, A>, int> = 0>
+  nd_span(const std::vector<A>& data) : nd_span(data.size()) {
+    std::copy(data.begin(), data.end(), this->begin());
+  }
+
+  // beginning of this span (flattened)
+  T* begin(void) const { return (this->source_).get() + this->offset_; }
+
+  // end of this span (flattened)
+  T* end(void) const { return this->begin() + this->size(); }
+
+  // access a tensor, row, or element of this span as a reference
+  // over the same range of memory (effectively, a sub-span)
+  value_type operator[](std::size_t index) const {
+    if constexpr (N == 1) {
+      return *(this->begin() + index);
+    } else {
+      auto next_offset = (this->offset_ + index) * (this->shape_)[1];
+      if constexpr (N == 2) {
+        return nd_span<T, 1>(this->source_, (this->shape_)[0], next_offset);
+      } else {
+        nd_span<T, 1> next(this->source_, {}, next_offset);
+        std::copy((this->shape_).begin() + 1, (this->shape_).end(),
+                  next.shape_.begin());
+        return next;
       }
     }
   }
+
+  // access a particular element within this span
+  // (most efficient way to access elements, no ARC overheads)
+  template <typename... Is,
+            typename std::enable_if_t<(sizeof...(Is) == N), int> = 0>
+  T& operator()(Is&&... is) const {
+    if constexpr (N == 1) {
+      return this->operator[](((std::size_t)is)...);
+    } else {
+      shape_type index = {((std::size_t)is)...};
+      auto offset = this->offset_;
+      for (auto i = 0; i < (N - 1); i++) {
+        offset = ((offset + index[i]) * this->shape_[i + 1]);
+      }
+      return *((this->source_).get() + offset + index[N - 1]);
+    }
+  }
+
+  // returns the size of this span (flattened)
+  std::size_t size(void) const {
+    if constexpr (N == 1) {
+      return this->shape_;
+    } else {
+      return std::accumulate(
+          this->shape_.begin(), this->shape_.end(), 1,
+          [](std::size_t x, std::size_t y) { return x * y; });
+    }
+  }
+
+  // pups this span as a range of values
+  // ( compatible with std::vector for 1D spans )
+  void pup(PUP::er& p) {
+    p | this->shape_;
+    auto n = this->size();
+    if (p.isUnpacking()) {
+      this->source_.reset(__alloc(n));
+    }
+    PUParray(p, this->begin(), n);
+  }
 };
+
+// zero-dimensional nd-spans explode upon subscripting
+template <typename T>
+struct nd_span<T, 0> {
+  using source_type = std::shared_ptr<T>;
+  using shape_type = std::array<std::size_t, 0>;
+  static constexpr auto dimensionality = 0;
+
+  template <typename... Args>
+  explicit nd_span(Args&&...) {}
+
+  T* begin(void) const { return nullptr; }
+
+  T* end(void) const { return nullptr; }
+
+  T& operator[](std::size_t) const { return *((T*)nullptr); }
+
+  std::size_t size(void) const { return 0; }
+};
+
+template <typename T>
+using span = nd_span<T, 1>;
 
 namespace {
 template <typename T>
@@ -79,8 +154,8 @@ struct get_span {
   using type = void;
 };
 
-template <typename T>
-struct get_span<span<T>> {
+template <typename T, std::size_t N>
+struct get_span<nd_span<T, N>> {
   using type = T;
 };
 }  // namespace

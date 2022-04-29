@@ -15,8 +15,8 @@ struct is_bytes<void> : public std::false_type {};
 template <typename T>
 struct is_bytes_span : public std::false_type {};
 
-template <typename T>
-struct is_bytes_span<ck::span<T>> : public is_bytes<T> {};
+template <typename T, std::size_t N>
+struct is_bytes_span<ck::nd_span<T, N>> : public is_bytes<T> {};
 
 // determines whether a value is a bytes type (see PUPBytes)
 template <typename T>
@@ -220,8 +220,8 @@ struct longest_match_helper<Class, std::tuple<Ts...>, I,
                             std::enable_if_t<(I <= sizeof...(Ts))>> {
  private:
   template <std::size_t... Is>
-  static auto __subset(std::index_sequence<Is...>) -> decltype(std::make_tuple(
-      std::get<Is>(std::declval<std::tuple<Ts...>>())...));
+  static auto __subset(std::index_sequence<Is...>) -> decltype(
+      std::make_tuple(std::get<Is>(std::declval<std::tuple<Ts...>>())...));
 
   using subset_t = decltype(__subset(std::make_index_sequence<I>()));
   static constexpr auto is_constructible =

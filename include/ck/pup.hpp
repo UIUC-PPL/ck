@@ -74,15 +74,16 @@ struct unpacker<std::tuple<Ts...>, std::enable_if_t<has_bytes_span_v<Ts...>>> {
   template <std::size_t I>
   void __unpack(const std::shared_ptr<CkMessage>& src, PUP::fromMem& p) {
     auto& value = std::get<I>(this->value());
-    using T = get_span_t<std::decay_t<decltype(value)>>;
+    using value_t = std::decay_t<decltype(value)>;
+    using T = get_span_t<value_t>;
     // if this is a span over bytes-like values...
     if constexpr (is_bytes_v<T>) {
       // unpack it using a pointer-to-offset optimization
-      std::size_t size;
-      p | size;
+      typename value_t::shape_type shape;
+      p | shape;
       auto* data = reinterpret_cast<T*>(p.get_current_pointer());
-      value = ck::span<T>(std::shared_ptr<T>(src, data), size);
-      p.advance(size * sizeof(T));
+      value = value_t(std::shared_ptr<T>(src, data), shape);
+      p.advance(value.size() * sizeof(T));
     } else {
       // otherwise, just unpack it directly
       p | value;
@@ -96,17 +97,20 @@ struct unpacker<std::tuple<Ts...>, std::enable_if_t<has_bytes_span_v<Ts...>>> {
  public:
   unpacker(void* msg) {
     if constexpr (sizeof...(Ts) == 1) {
-      using T = get_span_t<get_last_t<Ts...>>;
-      auto msgidx = UsrToEnv(msg)->getMsgIdx();
-      // exit early for contribution-like messages
-      if (msgidx == CkReductionMsg::__idx) {
-        this->value() = ck::unpack_contribution<T>(
-            std::shared_ptr<CkReductionMsg>((CkReductionMsg*)msg));
-        return;
-      } else if (msgidx == CkDataMsg::__idx) {
-        this->value() = ck::unpack_contribution<T>(
-            std::shared_ptr<CkDataMsg>((CkDataMsg*)msg));
-        return;
+      using last_t = get_last_t<Ts...>;
+      if constexpr (last_t::dimensionality == 1) {
+        using T = get_span_t<last_t>;
+        auto msgidx = UsrToEnv(msg)->getMsgIdx();
+        // exit early for contribution-like messages
+        if (msgidx == CkReductionMsg::__idx) {
+          this->value() = ck::unpack_contribution<T>(
+              std::shared_ptr<CkReductionMsg>((CkReductionMsg*)msg));
+          return;
+        } else if (msgidx == CkDataMsg::__idx) {
+          this->value() = ck::unpack_contribution<T>(
+              std::shared_ptr<CkDataMsg>((CkDataMsg*)msg));
+          return;
+        }
       }
     }
     // otherwise, unpack all values recursively

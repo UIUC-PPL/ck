@@ -296,7 +296,6 @@ void Cell::progress(void) {
 }
 
 void Cell::receiveParticles(int stepCount, ck::span<Particle>&& particles) {
-  CkEnforceMsg(particles.holds_source(), "should be pointer-to-offset");
   auto& thisBuffer = this->particleBuffer[stepCount];
   thisBuffer.emplace_back(std::move(particles));
   if (stepCount == this->updateCount) {
@@ -342,7 +341,6 @@ void Cell::checkForces(std::vector<ck::span<vec3>>& thisBuffer) {
 }
 
 void Cell::receiveForces(int stepCount, ck::span<vec3>&& forces) {
-  CkEnforceMsg(forces.holds_source(), "should be pointer-to-offset");
   auto& thisBuffer = this->forceBuffer[stepCount];
   thisBuffer.emplace_back(std::move(forces));
   if (stepCount == this->stepCount) {
@@ -366,7 +364,6 @@ void Compute::progress(void) {
 
 void Compute::calculateForces(int stepCount, const CkIndex3D& index,
                               ck::span<vec3>&& positions) {
-  CkEnforceMsg(positions.holds_source(), "should be pointer-to-offset");
   auto& thisBuffer = this->buffer[stepCount];
   if (stepCount == this->stepCount) {
     if (selfInteract) {
