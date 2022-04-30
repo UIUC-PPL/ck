@@ -78,7 +78,7 @@ struct nd_span {
       if constexpr (N == 2) {
         return nd_span<T, 1>(this->source_, (this->shape_)[0], next_offset);
       } else {
-        nd_span<T, 1> next(this->source_, {}, next_offset);
+        nd_span<T, (N - 1)> next(this->source_, {}, next_offset);
         std::copy((this->shape_).begin() + 1, (this->shape_).end(),
                   next.shape_.begin());
         return next;
@@ -113,6 +113,9 @@ struct nd_span {
           [](std::size_t x, std::size_t y) { return x * y; });
     }
   }
+
+  // returns the shape of this span
+  const shape_type& shape(void) const { return this->shape_; }
 
   // pups this span as a range of values
   // ( compatible with std::vector for 1D spans )

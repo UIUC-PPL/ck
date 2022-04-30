@@ -19,12 +19,13 @@
 namespace ck {
 
 // proxy for singleton chares
-template <typename Base>
+template <typename Base, typename Kind = kind_of_t<Base>>
 struct chare_proxy : public CProxy_Chare {
+  using kind_t = Kind;
   using local_t = Base;
   using index_t = index<Base>;
-  using proxy_t = chare_proxy<Base>;
-  using element_t = chare_proxy<Base>;
+  using proxy_t = chare_proxy<Base, Kind>;
+  using element_t = chare_proxy<Base, Kind>;
   static constexpr auto is_array = false;
 
   chare_proxy(PUP::reconstruct) = delete;
@@ -32,7 +33,7 @@ struct chare_proxy : public CProxy_Chare {
 
   // TODO ( make this explicit! )
   template <typename... Args>
-  chare_proxy(Args &&...args) : CProxy_Chare(std::forward<Args>(args)...) {}
+  chare_proxy(Args &&... args) : CProxy_Chare(std::forward<Args>(args)...) {}
 
   void send(CkMessage *msg, int ep, int flags) const {
     CkSendMsg(ep, msg, &(this->ckGetChareID()), flags);
@@ -84,7 +85,7 @@ struct section_proxy : public section_proxy_of_t<Kind> {
 
   // TODO ( make this explicit! )
   template <typename... Args>
-  section_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
+  section_proxy(Args &&... args) : parent_t(std::forward<Args>(args)...) {}
 
   void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {
@@ -114,7 +115,7 @@ struct section_proxy : public section_proxy_of_t<Kind> {
 
   template <typename... Args>
   static std::enable_if_t<get_first_v<is_array, Args...>> contribute(
-      Args &&...args) {
+      Args &&... args) {
     auto &sid = __info(args...);
     auto *arr = CProxy_CkArray(sid.get_aid()).ckLocalBranch();
     auto *grp = CProxy_CkMulticastMgr(arr->getmCastMgr()).ckLocalBranch();
@@ -133,7 +134,7 @@ struct element_proxy : public element_proxy_of_t<Kind> {
 
   // TODO ( make this explicit! )
   template <typename... Args>
-  element_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
+  element_proxy(Args &&... args) : parent_t(std::forward<Args>(args)...) {}
 
   void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {
@@ -177,7 +178,7 @@ struct collection_proxy : public collection_proxy_of_t<Kind> {
 
   // TODO ( make this explicit! )
   template <typename... Args>
-  collection_proxy(Args &&...args) : parent_t(std::forward<Args>(args)...) {}
+  collection_proxy(Args &&... args) : parent_t(std::forward<Args>(args)...) {}
 
   void send(CkMessage *msg, int ep, int flags) const {
     if constexpr (is_array) {

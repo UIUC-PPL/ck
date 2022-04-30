@@ -41,7 +41,7 @@ struct chare : public Parent, public CBase {
 template <class Base, class Kind>
 struct chare<Base, Kind, Chare> : public Chare, public CBase {
   using parent_t = Chare;
-  using CProxy_Derived = chare_proxy<Base>;
+  using CProxy_Derived = chare_proxy<Base, Kind>;
 
   CBASE_MEMBERS;
 

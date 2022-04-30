@@ -8,7 +8,7 @@ namespace ck {
 namespace {
 // helper to create chare-arrays
 template <typename Base, typename Index, typename Options, typename... Args>
-array_proxy<Base, Index> __create_array(const Options &opts, Args &&...args) {
+array_proxy<Base, Index> __create_array(const Options &opts, Args &&... args) {
   // pack the arguments into a message (with the entry options)
   auto *msg = ck::pack(opts.e_opts, std::forward<Args>(args)...);
   // retrieve the constructor's index
@@ -22,7 +22,7 @@ array_proxy<Base, Index> __create_array(const Options &opts, Args &&...args) {
 // helper to create group-like proxies
 template <typename Base, typename Kind, typename... Args>
 collection_proxy<Base, Kind> __create_grouplike(const CkEntryOptions *opts,
-                                                Args &&...args) {
+                                                Args &&... args) {
   constexpr auto is_group = std::is_same_v<Kind, group>;
   constexpr auto msg_type = is_group ? BocInitMsg : NodeBocInitMsg;
   auto idx = index<Base>::__idx;
@@ -51,7 +51,7 @@ struct creator<array_proxy<Base, Index>> {
 
   template <typename... Args>
   array_proxy<Base, Index> operator()(const array_options<Index> &opts,
-                                      Args &&...args) const {
+                                      Args &&... args) const {
     return __create_array<Base, Index>(opts, std::forward<Args>(args)...);
   }
 };
@@ -60,7 +60,7 @@ template <typename Base>
 struct creator<group_proxy<Base>> {
   template <typename... Args>
   group_proxy<Base> operator()(const CkEntryOptions *opts,
-                               Args &&...args) const {
+                               Args &&... args) const {
     return __create_grouplike<Base, group>(opts, std::forward<Args>(args)...);
   }
 };
@@ -69,7 +69,7 @@ template <typename Base>
 struct creator<nodegroup_proxy<Base>> {
   template <typename... Args>
   nodegroup_proxy<Base> operator()(const CkEntryOptions *opts,
-                                   Args &&...args) const {
+                                   Args &&... args) const {
     return __create_grouplike<Base, nodegroup>(opts,
                                                std::forward<Args>(args)...);
   }
@@ -78,7 +78,7 @@ struct creator<nodegroup_proxy<Base>> {
 template <typename Base>
 struct creator<chare_proxy<Base>> {
   template <typename... Args>
-  chare_proxy<Base> operator()(const on_pe &opts, Args &&...args) const {
+  chare_proxy<Base> operator()(const on_pe &opts, Args &&... args) const {
     CkChareID ret;
     auto *epopts = const_cast<CkEntryOptions *>(opts.opts);
     auto *msg = ck::pack(epopts, std::forward<Args>(args)...);
@@ -143,7 +143,7 @@ void __insert(const element_proxy<T, array<Index>> &elt,
 // creates a singleton, collection, or section proxy with the given arguments
 // TODO ( enable asynchronous (array?) creation )
 template <typename Proxy, typename... Args>
-auto create(Args &&...args) {
+auto create(Args &&... args) {
   using local_t = typename Proxy::local_t;
   using instance_t = instance_proxy_of_t<local_t>;
   static_assert(std::is_same_v<instance_t, Proxy> || !is_elementlike_v<Proxy>,
@@ -166,7 +166,7 @@ auto create(Args &&...args) {
 
 // inserts an element proxy into a chare array with the given args
 template <typename T, typename Index, typename... Args>
-auto insert(const element_proxy<T, array<Index>> &elt, Args &&...args) {
+auto insert(const element_proxy<T, array<Index>> &elt, Args &&... args) {
   using last_t = std::decay_t<get_last_t<Args...>>;
   constexpr auto N = (std::is_same_v<on_pe, std::remove_cv_t<last_t>>)
                          ? (sizeof...(args) - 1)
