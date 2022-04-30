@@ -5,6 +5,7 @@
 
 namespace ck {
 
+// a fixed-size container that can share ownership of a message buffer
 template <typename T, std::size_t N>
 struct nd_span {
   using source_type = std::shared_ptr<T>;
@@ -20,14 +21,16 @@ struct nd_span {
   friend struct nd_span;
 
  private:
-  shape_type shape_;
+  shape_type shape_;  // comes first so its init'd first
   source_type source_;
   std::size_t offset_;
 
+  // initialize each field of the span
   nd_span(const source_type& source, const shape_type& shape,
           std::size_t offset)
       : shape_(shape), source_(source), offset_(offset) {}
 
+  // allocate a range of values, initializing each with the given arguments
   template <typename... Ts>
   static T* __alloc(std::size_t size, const Ts&... ts) {
     auto* t = (T*)(::operator new(size * sizeof(T)));
@@ -55,7 +58,7 @@ struct nd_span {
   explicit nd_span(const shape_type& shape)
       : shape_(shape), source_(__alloc(this->size())), offset_(0) {}
 
-  // enables converting std::vectors of compatible types to spans
+  // enables converting std::vectors of compatible types to 1d spans
   template <typename A, typename std::enable_if_t<
                             (N == 1) && std::is_assignable_v<T&, A>, int> = 0>
   nd_span(const std::vector<A>& data) : nd_span(data.size()) {
