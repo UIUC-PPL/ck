@@ -3,21 +3,24 @@ OPTS:=$(OPTS) -c++-option -std=c++17 $(INCLUDES)
 
 all: fib.out hello.out hierarchical_hello.out histogram.out leanmd.out
 
-fib.out: fib.cpp
-	charmc $(OPTS) fib.cpp -o fib.out
+common.o: ../include/ck/common.cpp
+	charmc $(OPTS) ../include/ck/common.cpp -c -o common.o
 
-hello.out: hello.cpp
-	charmc $(OPTS) hello.cpp -o hello.out
+fib.out: fib.cpp common.o
+	charmc $(OPTS) fib.cpp common.o -o fib.out
 
-hierarchical_hello.out: hierarchical_hello.cpp
-	charmc $(OPTS) hierarchical_hello.cpp -o hierarchical_hello.out -module CommonLBs
+hello.out: hello.cpp common.o
+	charmc $(OPTS) hello.cpp common.o -o hello.out
 
-histogram.out: histogram.cpp histogram.hpp
-	charmc $(OPTS) histogram.cpp -o histogram.out
+hierarchical_hello.out: hierarchical_hello.cpp common.o
+	charmc $(OPTS) hierarchical_hello.cpp common.o -o hierarchical_hello.out -module CommonLBs
 
-leanmd.out: leanmd/*.*pp
-	charmc $(OPTS) -Ileanmd/ leanmd/leanmd.cpp -o leanmd.out
+histogram.out: histogram.cpp histogram.hpp common.o
+	charmc $(OPTS) histogram.cpp common.o -o histogram.out
+
+leanmd.out: leanmd/*.*pp common.o
+	charmc $(OPTS) -Ileanmd/ leanmd/leanmd.cpp common.o -o leanmd.out
 
 clean:
-	rm -f *.log.gz *.out.projrc *.out.sts
+	rm -f *.log.gz *.out.projrc *.out.sts common.o
 	rm -f charmrun fib.out hello.out hierarchical_hello.out histogram.out leanmd.out

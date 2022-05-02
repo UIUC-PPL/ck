@@ -30,28 +30,6 @@ int chare_registrar<Base>::__register(void) {
   reg.emplace_back(fn);
   return ep;
 }
-
-inline void __register(void) {
-  auto& chares = registry::chares();
-  for (auto& chare : chares) {
-    (*chare)();
-  }
-
-  auto& readonlies = registry::readonlies();
-  for (auto& readonly : readonlies) {
-    (*readonly)();
-  }
-
-  auto& reducers = registry::reducers();
-  for (auto& reducer : reducers) {
-    (*reducer)();
-  }
-
-  auto& pupables = registry::pupables();
-  for (auto& pupable : pupables) {
-    (*pupable)();
-  }
-}
 }  // namespace ck
 
 #endif
