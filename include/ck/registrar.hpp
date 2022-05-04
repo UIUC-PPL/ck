@@ -63,6 +63,10 @@ struct index {
       CkRegisterMainChare(__idx, main_chare_constructor<Base>());
     }
 
+    if constexpr (std::is_default_constructible_v<Base>) {
+      CkRegisterDefaultCtor(__idx, constructor_index<>());
+    }
+
     CkRegisterMigCtor(__idx, constructor_index<CkMigrateMessage*>());
 
     for (auto& entry : __entries()) {
