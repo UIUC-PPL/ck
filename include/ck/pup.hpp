@@ -6,6 +6,7 @@
 
 namespace ck {
 
+// helper struct to pack data into a message with options
 template <typename T, typename Enable = void>
 struct packer {
   template <typename... Args>
@@ -18,6 +19,8 @@ struct packer {
   }
 };
 
+// helper struct passing a message through, stamping it
+// with options along the way (if specified)
 template <typename T>
 struct packer<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
   CkMessage* operator()(CkEntryOptions* opts, T* t) const {
@@ -25,6 +28,7 @@ struct packer<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
   }
 };
 
+// helper struct to unpack data from a message
 template <typename T, typename Enable = void>
 struct unpacker {
  private:
@@ -39,6 +43,7 @@ struct unpacker {
   T& value(void) { return (this->holder_).t; }
 };
 
+// helper struct to pass a message through
 template <typename T>
 struct unpacker<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
  private:
@@ -50,6 +55,7 @@ struct unpacker<std::tuple<T*>, std::enable_if_t<is_message_v<T>>> {
   std::tuple<T*>& value(void) { return this->msg_; }
 };
 
+// helper struct to unpack c-like main arguments from a CkArgMsg
 template <>
 struct unpacker<main_arguments_t> {
  private:
@@ -65,6 +71,7 @@ struct unpacker<main_arguments_t> {
   main_arguments_t& value(void) { return this->args_; }
 };
 
+// helper struct to unpack a set of values containing a bytes-like span
 template <typename... Ts>
 struct unpacker<std::tuple<Ts...>, std::enable_if_t<has_bytes_span_v<Ts...>>> {
  private:
@@ -122,6 +129,7 @@ struct unpacker<std::tuple<Ts...>, std::enable_if_t<has_bytes_span_v<Ts...>>> {
   tuple_t& value(void) { return (this->storage_).t; }
 };
 
+// helper function to pack data into a message with/out options
 template <typename... Args>
 CkMessage* pack(CkEntryOptions* opts, const Args&... args) {
   return packer<std::tuple<std::decay_t<Args>...>>()(opts, args...);

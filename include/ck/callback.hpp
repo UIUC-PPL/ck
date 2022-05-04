@@ -14,6 +14,8 @@ struct callback : public CkCallback {
   template <typename... Args>
   callback(Args&&... args) : CkCallback(std::forward<Args>(args)...) {}
 
+  // TODO ( enforce that types of arguments match )
+  // TODO ( enable passing CkEntryOptions* here? )
   template <typename... Args>
   void send(Args&&... args) const {
     if constexpr (is_message_v<std::decay_t<Args>...>) {
