@@ -21,7 +21,10 @@ struct callback : public CkCallback {
     if constexpr (is_message_v<std::decay_t<Args>...>) {
       CkCallback::send(args...);
     } else {
-      CkCallback::send(ck::pack(nullptr, std::forward<Args>(args)...));
+      auto* msg = this->requiresMsgConstruction()
+                      ? ck::pack(nullptr, std::forward<Args>(args)...)
+                      : nullptr;
+      CkCallback::send(msg);
     }
   }
 };
