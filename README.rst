@@ -80,4 +80,4 @@ One can register custom reducer functions (i.e., those that combine contribution
 
 Readonly Variables
 ==================
-NAME supports defining readonly variables via the :code:`CK_READONLY` macro. One can forward declare readonly variables using the :code:`CK_EXTERN_READONLY` macro. Note that when the types of readonly variables contain commas, they must be enclosed within parenthesis. For example, :code:`CK_READONLY((std::map<int, int>), kReadonlyMap)` is a correct declaration. 
+NAME supports defining readonly variables via the :code:`CK_READONLY` macro. One can forward declare readonly variables using the :code:`CK_EXTERN_READONLY` macro. Note that types of readonly variables containing commas must be enclosed within parenthesis. For example, :code:`CK_READONLY((std::map<int, int>), kReadonlyMap)` is a valid declaration. 
